@@ -1,0 +1,787 @@
+{
+  "audit": {
+    "day07": {
+      "missing_split_count": 0,
+      "split_counts": {
+        "test": 40,
+        "train": 120,
+        "validation": 40
+      },
+      "task_count": 200,
+      "unique_task_id_count": 200
+    },
+    "day08": {
+      "attempt_duplicate_task_run_id_groups": 0,
+      "attempts_per_task_histogram": {
+        "1": 5,
+        "2": 19
+      },
+      "logical_duplicate_task_id_groups": 0,
+      "logical_task_count": 24,
+      "missing_controller_type_count": 43,
+      "missing_split_count": 0,
+      "raw_attempt_count": 43,
+      "repeated_logical_task_id_groups_in_attempts": 19,
+      "status_counts": {
+        "infra_failure": 4,
+        "success": 19,
+        "task_failure": 1
+      },
+      "unique_logical_task_id_count": 24,
+      "unique_task_run_id_count": 43
+    },
+    "day09": {
+      "action_applicability_counts": {
+        "CONTINUE:true": 20,
+        "REPLAN:false": 10,
+        "REPLAN:true": 10,
+        "RETRY:false": 14,
+        "RETRY:true": 6
+      },
+      "applicable_branch_count": 36,
+      "branch_record_count": 60,
+      "checkpoint_count": 20,
+      "controller_type_counts": {
+        "deterministic_local_reference": 60
+      },
+      "missing_checkpoint_hash_count": 20,
+      "missing_controller_type_count": 0,
+      "missing_split_branch_count": 0,
+      "missing_split_checkpoint_count": 0,
+      "missing_state_hash_count": 0,
+      "unique_branch_id_count": 60,
+      "unique_checkpoint_action_pair_count": 60,
+      "unique_checkpoint_id_count": 20,
+      "unknown_checkpoint_reference_count": 0
+    },
+    "day10": {
+      "example_count": 20,
+      "feature_count": 26,
+      "metadata_source_day9_run": "runs/day09/day9_20261119_080843_288841fc",
+      "missing_split_count": 0,
+      "unique_feature_count": 26
+    },
+    "day11": {
+      "applicable_example_count": 36,
+      "example_count": 60,
+      "feature_count": 26,
+      "feature_schema_matches_day10": true,
+      "metadata_source_day9_run": "runs/day09/day9_20261119_080843_288841fc",
+      "missing_split_count": 0,
+      "unique_feature_count": 26
+    },
+    "day12": {
+      "missing_decision_split_count": 0,
+      "missing_execution_controller_type_count": 0,
+      "missing_execution_split_count": 0,
+      "policy_record_count": 20
+    },
+    "day13": {
+      "branch_result_count": 180,
+      "execution_payload_mismatch_count": 0,
+      "missing_execution_controller_type_count": 0,
+      "missing_split_count": 0,
+      "policy_counts": {
+        "always_retry": 20,
+        "full": 20,
+        "risk_based": 20,
+        "risk_plus_utility": 20,
+        "rule_based": 20,
+        "vanilla": 20,
+        "without_cost": 20,
+        "without_risk": 20,
+        "without_utility": 20
+      },
+      "policy_only_branch_id_count": 0,
+      "policy_record_count": 180,
+      "result_only_branch_id_count": 0,
+      "unique_branch_result_id_count": 180,
+      "unique_policy_checkpoint_pair_count": 180,
+      "unique_policy_execution_branch_id_count": 180
+    },
+    "day14": {
+      "branch_utility_eligible_count": 0,
+      "selected_trial_count": 3
+    },
+    "gate_checks": {
+      "applicable_split_fields_complete": true,
+      "branch_controller_type_fields_complete": true,
+      "day07_200_unique_tasks": true,
+      "day08_24_logical_43_attempts": true,
+      "day08_attempt_and_logical_ids_unique": true,
+      "day09_20_checkpoints_60_actions_36_applicable": true,
+      "day09_identifiers_unique_and_referentially_complete": true,
+      "day09_state_hash_available_for_all_checkpoints": true,
+      "day10_day11_feature_schema_26_unique_and_equal": true,
+      "day10_day11_source_day09": true,
+      "day13_180_records_one_to_one": true
+    }
+  },
+  "gate_passed": true,
+  "hash_algorithm": "SHA-256",
+  "historical_trees": [
+    {
+      "file_count": 388,
+      "path": "runs/day07/day7_20261118_033944_4b4bdfa9",
+      "role": "day07 formal run",
+      "size_bytes": 6116783,
+      "tree_hash_encoding": "sorted(relative_path + NUL + size_bytes + NUL + file_sha256 + LF)",
+      "tree_sha256": "6e0be9f8dcf9958b9c2c96083d226867c71b197247bc152999cb0a34931b8b18"
+    },
+    {
+      "file_count": 51,
+      "path": "runs/day08/day8_20261119_074032_7ec4c41e",
+      "role": "day08 formal run",
+      "size_bytes": 1131593,
+      "tree_hash_encoding": "sorted(relative_path + NUL + size_bytes + NUL + file_sha256 + LF)",
+      "tree_sha256": "51617d377525dd689a4fed099e2fc72cf648d899bccd4a1b61cb8d4d8e6cc78a"
+    },
+    {
+      "file_count": 326,
+      "path": "runs/day09/day9_20261119_080843_288841fc",
+      "role": "day09 formal run",
+      "size_bytes": 3227785,
+      "tree_hash_encoding": "sorted(relative_path + NUL + size_bytes + NUL + file_sha256 + LF)",
+      "tree_sha256": "c0f07f51cfa867b6896348dc4dab1ab11fb63efe640114040fb30e4c06f6c1e4"
+    },
+    {
+      "file_count": 7,
+      "path": "runs/day10/day10_20261119_082058_aab1d057",
+      "role": "day10 formal run",
+      "size_bytes": 55674,
+      "tree_hash_encoding": "sorted(relative_path + NUL + size_bytes + NUL + file_sha256 + LF)",
+      "tree_sha256": "960e7eb31293bbdc77de8fbf49aa1f6d7cd32459d92e83fd931790d0ca6070b8"
+    },
+    {
+      "file_count": 3,
+      "path": "models/risk/day10_20261119_082058_aab1d057",
+      "role": "day10 final models",
+      "size_bytes": 38175,
+      "tree_hash_encoding": "sorted(relative_path + NUL + size_bytes + NUL + file_sha256 + LF)",
+      "tree_sha256": "a0616bff7e66c850e3156338f59d712b8a3dd8376593005935295e39ad363af5"
+    },
+    {
+      "file_count": 8,
+      "path": "runs/day11/day11_20261119_082900_e8d013ce",
+      "role": "day11 formal run",
+      "size_bytes": 153386,
+      "tree_hash_encoding": "sorted(relative_path + NUL + size_bytes + NUL + file_sha256 + LF)",
+      "tree_sha256": "cc14130e4b9624d30b341869705860a7e7f80da2a1bbc5effc5567282b873eb7"
+    },
+    {
+      "file_count": 13,
+      "path": "models/utility/day11_20261119_082900_e8d013ce",
+      "role": "day11 final models",
+      "size_bytes": 15589,
+      "tree_hash_encoding": "sorted(relative_path + NUL + size_bytes + NUL + file_sha256 + LF)",
+      "tree_sha256": "85dda4f1e7550536b1e484e973610c2b2bdf40ea00db9255e9eb286c5abea70c"
+    },
+    {
+      "file_count": 113,
+      "path": "runs/day12/day12_20261119_083943_b18d954e",
+      "role": "day12 formal run",
+      "size_bytes": 1486642,
+      "tree_hash_encoding": "sorted(relative_path + NUL + size_bytes + NUL + file_sha256 + LF)",
+      "tree_sha256": "f72f067c6f4a1374639c777db5358031e1d92de228a29194deffea0dd6809da2"
+    },
+    {
+      "file_count": 923,
+      "path": "runs/day13/day13_20261119_085002_5754c690",
+      "role": "day13 formal run",
+      "size_bytes": 11624335,
+      "tree_hash_encoding": "sorted(relative_path + NUL + size_bytes + NUL + file_sha256 + LF)",
+      "tree_sha256": "51497042d91928337a5cca526919806030d8e5e6b1a7112b92e2b22c31fac86a"
+    },
+    {
+      "file_count": 5,
+      "path": "runs/day14/day14_20261119_090131_2c077c82",
+      "role": "day14 formal run",
+      "size_bytes": 145888,
+      "tree_hash_encoding": "sorted(relative_path + NUL + size_bytes + NUL + file_sha256 + LF)",
+      "tree_sha256": "702715e868c6e7ec9d3ff00e739a533ccc5b054dfd5a06c5d18536d1c3afc357"
+    }
+  ],
+  "key_artifacts": [
+    {
+      "path": "AGENTS.md",
+      "role": "governance or experiment guide",
+      "sha256": "cd7cc4e120ccf80887bedf47e2a8f09779e61eb3243ab7f18165c079dd49cfe2",
+      "size_bytes": 8569
+    },
+    {
+      "path": "NEXT_STAGE_EXPERIMENT_GUIDE.md",
+      "role": "governance or experiment guide",
+      "sha256": "224f6848ca909d87c0fcd68d110de4eedcae3c40ac4ff4e3ec8469461c41ddd6",
+      "size_bytes": 54140
+    },
+    {
+      "path": "PROJECT_GUIDE.md",
+      "role": "governance or experiment guide",
+      "sha256": "0be65e21adebf5fc1b7269a85f06de9130548d8a9d96523077d006706daa1977",
+      "size_bytes": 20527
+    },
+    {
+      "path": "README.md",
+      "role": "governance or experiment guide",
+      "sha256": "dbf7b9f13361eb09b6bfd7396ae4b41a1b7ad24dd77e88a6ec35f2b3f4769ccc",
+      "size_bytes": 10777
+    },
+    {
+      "path": "configs/day10_risk.yaml",
+      "role": "historical configuration",
+      "sha256": "0ca5e602921f3fed25570ec34612e3f7cf9c97fc1b36708bdc64f8876f9563f0",
+      "size_bytes": 584
+    },
+    {
+      "path": "configs/day11_utility.yaml",
+      "role": "historical configuration",
+      "sha256": "f4dd196f1b5ceb9d8f5e5673e50409999c1a8c1940744b9055a2298afabeb10b",
+      "size_bytes": 620
+    },
+    {
+      "path": "configs/day12_policy.yaml",
+      "role": "historical configuration",
+      "sha256": "27e4317aca7e8c5d42ec32d380149eeb5730dbc5d689f16e3943ccdf2627c3fc",
+      "size_bytes": 625
+    },
+    {
+      "path": "configs/day13_experiment.yaml",
+      "role": "historical configuration",
+      "sha256": "b283a228e2f29737747b1961311e268d489e9713e3984d17fc529ecf736f1e73",
+      "size_bytes": 844
+    },
+    {
+      "path": "configs/day14_recovery_bench.yaml",
+      "role": "historical configuration",
+      "sha256": "b59d26596575cb181fbbf1ca9effd5e16fb1d3214f107ab18b9166adc9104655",
+      "size_bytes": 1139
+    },
+    {
+      "path": "configs/day8_collection.yaml",
+      "role": "historical configuration",
+      "sha256": "49be4fddc87854851a5c1abb6eb5c04e4446cf6c8ccf05d5b3cfff3d137ec20b",
+      "size_bytes": 379
+    },
+    {
+      "path": "configs/day9_interventions.yaml",
+      "role": "historical configuration",
+      "sha256": "22bf641e036f98d101368b200e85c099e8ea6ccf0f05d5cf111b78945ba4ecc8",
+      "size_bytes": 396
+    },
+    {
+      "path": "configs/task_templates.yaml",
+      "role": "historical configuration",
+      "sha256": "eb7081c6b523247b4819232a28b266b4ffb19d5a25eaab8b3438e9f6694b59d6",
+      "size_bytes": 7290
+    },
+    {
+      "path": "configs/tasks.yaml",
+      "role": "historical configuration",
+      "sha256": "0207520d9e51b5d188eaaf96c8d651afd52a3c4f81639e28ada18f050f973d83",
+      "size_bytes": 4543
+    },
+    {
+      "path": "docs/daily_reports/day_07_report.md",
+      "role": "historical daily report",
+      "sha256": "613a380d1e45e8e39c19a3ba6bd183520bcfca7df91ef98f56039e1a8f50fe23",
+      "size_bytes": 7454
+    },
+    {
+      "path": "docs/daily_reports/day_08_report.md",
+      "role": "historical daily report",
+      "sha256": "ab16a50864efdf857ec312de6bf6817f4a7e77e99370949210ae32f69914e538",
+      "size_bytes": 10058
+    },
+    {
+      "path": "docs/daily_reports/day_09_report.md",
+      "role": "historical daily report",
+      "sha256": "c624df2064dc5516949d73f9e7453d4465e4ddbbd8050a4773c427de0a4bc7ac",
+      "size_bytes": 9053
+    },
+    {
+      "path": "docs/daily_reports/day_10_report.md",
+      "role": "historical daily report",
+      "sha256": "a4abe056ccd0a499ae494f350f230f1da02cd34a0c3f97e7164620c865fb9e7a",
+      "size_bytes": 8740
+    },
+    {
+      "path": "docs/daily_reports/day_11_report.md",
+      "role": "historical daily report",
+      "sha256": "2f3647a8f1f4e7e3da553e43b48940665e66225767aa21b41daf5ed193deb7b0",
+      "size_bytes": 9523
+    },
+    {
+      "path": "docs/daily_reports/day_12_report.md",
+      "role": "historical daily report",
+      "sha256": "25f2b23cd70f6f6768338dccc301db23b86b6aeb02c662b5cddbb2c0702f1448",
+      "size_bytes": 9097
+    },
+    {
+      "path": "docs/daily_reports/day_13_report.md",
+      "role": "historical daily report",
+      "sha256": "543f20d0f56212eba979a939f98629fd4730028347201e9a72e0fb9f3cc6034b",
+      "size_bytes": 13745
+    },
+    {
+      "path": "docs/daily_reports/day_14_report.md",
+      "role": "historical daily report",
+      "sha256": "5212a0d023fd119f893534d162bc81c4c2948ee18f19230953abe88dc75f52a2",
+      "size_bytes": 10567
+    },
+    {
+      "path": "models/risk/day10_20261119_082058_aab1d057/lightgbm.joblib",
+      "role": "day10 final models key artifact",
+      "sha256": "73fa754c52510f92349765cea1e13dccd259ed74fcffbf34ede1d80912a2c2ce",
+      "size_bytes": 34676
+    },
+    {
+      "path": "models/risk/day10_20261119_082058_aab1d057/logistic_regression.joblib",
+      "role": "day10 final models key artifact",
+      "sha256": "1905de4be74ec97c17f437109a0e87e5ec6029ad9836b19c089b9eaa4dfad05c",
+      "size_bytes": 2177
+    },
+    {
+      "path": "models/risk/day10_20261119_082058_aab1d057/model_metadata.json",
+      "role": "day10 final models key artifact",
+      "sha256": "cd6b99cfccb4b46e1d5b288465c623a5e6b02f59e6ab507de6d5920db607bbe2",
+      "size_bytes": 1322
+    },
+    {
+      "path": "models/utility/day11_20261119_082900_e8d013ce/continue_cost_latency_seconds.joblib",
+      "role": "day11 final models key artifact",
+      "sha256": "d33273dc3548d6d6e3316d1526027acbcddba1f561cd8e8001c453460902c166",
+      "size_bytes": 1907
+    },
+    {
+      "path": "models/utility/day11_20261119_082900_e8d013ce/continue_cost_tokens.joblib",
+      "role": "day11 final models key artifact",
+      "sha256": "d68398c778e528f112d16114316ad08f8e50bc9cefc8949467b8b2cbcfa9a870",
+      "size_bytes": 481
+    },
+    {
+      "path": "models/utility/day11_20261119_082900_e8d013ce/continue_cost_tool_calls.joblib",
+      "role": "day11 final models key artifact",
+      "sha256": "0ce0eb4bc7cc4a1e76b55f16400131de58b48f205a97c1e1729da6cef7b8351e",
+      "size_bytes": 481
+    },
+    {
+      "path": "models/utility/day11_20261119_082900_e8d013ce/continue_outcome.joblib",
+      "role": "day11 final models key artifact",
+      "sha256": "31740df048fd30d0fffa85c8a13a4463d06ea9378ece9fc8c87799cd6ebc7793",
+      "size_bytes": 2177
+    },
+    {
+      "path": "models/utility/day11_20261119_082900_e8d013ce/model_metadata.json",
+      "role": "day11 final models key artifact",
+      "sha256": "7cf1e445458240f7e7edc2d78d9895c0748c2235bc5f66969f7e91774106fc7f",
+      "size_bytes": 3095
+    },
+    {
+      "path": "models/utility/day11_20261119_082900_e8d013ce/replan_cost_latency_seconds.joblib",
+      "role": "day11 final models key artifact",
+      "sha256": "90e1f506dfafd449ae7bc9d782f8e76b27889732d326f2819cb4ec39ea001533",
+      "size_bytes": 1907
+    },
+    {
+      "path": "models/utility/day11_20261119_082900_e8d013ce/replan_cost_tokens.joblib",
+      "role": "day11 final models key artifact",
+      "sha256": "d68398c778e528f112d16114316ad08f8e50bc9cefc8949467b8b2cbcfa9a870",
+      "size_bytes": 481
+    },
+    {
+      "path": "models/utility/day11_20261119_082900_e8d013ce/replan_cost_tool_calls.joblib",
+      "role": "day11 final models key artifact",
+      "sha256": "95ac38a169605d96b3ff5f905334905e185ff223cd93a8a2702a16ef2c0afe58",
+      "size_bytes": 1907
+    },
+    {
+      "path": "models/utility/day11_20261119_082900_e8d013ce/replan_outcome.joblib",
+      "role": "day11 final models key artifact",
+      "sha256": "e9c7343f3e6da13ca20d9c44026d47d6f90008423c6b5a8606453bc9ef88882b",
+      "size_bytes": 142
+    },
+    {
+      "path": "models/utility/day11_20261119_082900_e8d013ce/retry_cost_latency_seconds.joblib",
+      "role": "day11 final models key artifact",
+      "sha256": "611aee12b0e29e1695f30310183af415764d164459ab9407b15aef667d7aac80",
+      "size_bytes": 1907
+    },
+    {
+      "path": "models/utility/day11_20261119_082900_e8d013ce/retry_cost_tokens.joblib",
+      "role": "day11 final models key artifact",
+      "sha256": "d68398c778e528f112d16114316ad08f8e50bc9cefc8949467b8b2cbcfa9a870",
+      "size_bytes": 481
+    },
+    {
+      "path": "models/utility/day11_20261119_082900_e8d013ce/retry_cost_tool_calls.joblib",
+      "role": "day11 final models key artifact",
+      "sha256": "0ce0eb4bc7cc4a1e76b55f16400131de58b48f205a97c1e1729da6cef7b8351e",
+      "size_bytes": 481
+    },
+    {
+      "path": "models/utility/day11_20261119_082900_e8d013ce/retry_outcome.joblib",
+      "role": "day11 final models key artifact",
+      "sha256": "82285cc3ea279e356ed1c77f3d1d6c0ed4d329d4f2f940fe4b079104e0ce9226",
+      "size_bytes": 142
+    },
+    {
+      "path": "runs/day07/day7_20261118_033944_4b4bdfa9/split_manifest.json",
+      "role": "day07 formal run key artifact",
+      "sha256": "701996f7333efededeac3a85f8ef5ecd6a3aa0562a00e80f615aefa7aa9630dd",
+      "size_bytes": 9815
+    },
+    {
+      "path": "runs/day07/day7_20261118_033944_4b4bdfa9/task_catalog.json",
+      "role": "day07 formal run key artifact",
+      "sha256": "7ed7f9105ddf1f8a1fbbd968f41acff83ada31d190f235e97e5b324a0a9679dc",
+      "size_bytes": 215103
+    },
+    {
+      "path": "runs/day07/day7_20261118_033944_4b4bdfa9/task_results.json",
+      "role": "day07 formal run key artifact",
+      "sha256": "14b679633d682c16e5c28ae944bfa66518afc704931335c1fb906a27518d2533",
+      "size_bytes": 149813
+    },
+    {
+      "path": "runs/day08/day8_20261119_074032_7ec4c41e/collection_summary.json",
+      "role": "day08 formal run key artifact",
+      "sha256": "de7bc37ece0da5775d36d88cb68a495c8b8a0be2809b812623cccab8130b5833",
+      "size_bytes": 2178
+    },
+    {
+      "path": "runs/day08/day8_20261119_074032_7ec4c41e/logical_task_results.json",
+      "role": "day08 formal run key artifact",
+      "sha256": "6eda80c7757c10965fc7befdd83ec62988c92f6e0c6ff097c927993d96e1595e",
+      "size_bytes": 228890
+    },
+    {
+      "path": "runs/day08/day8_20261119_074032_7ec4c41e/preflight.json",
+      "role": "day08 formal run key artifact",
+      "sha256": "c54cf6340d11203c9ee557b3ebe2286fb3ce23bbd85b48fbc7723570238f4e03",
+      "size_bytes": 560
+    },
+    {
+      "path": "runs/day08/day8_20261119_074032_7ec4c41e/task_trajectories.jsonl",
+      "role": "day08 formal run key artifact",
+      "sha256": "603971a50cf6c8abb4149756c93f42e11297c9eb02be87ef2eb8cded87f3d39a",
+      "size_bytes": 181793
+    },
+    {
+      "path": "runs/day08/day8_20261119_074032_7ec4c41e/tool_trajectories.jsonl",
+      "role": "day08 formal run key artifact",
+      "sha256": "945ff92255a9e86224c54a560bb11287885fb6c05203badb30127e0d46ecdf3c",
+      "size_bytes": 29155
+    },
+    {
+      "path": "runs/day09/day9_20261119_080843_288841fc/branch_outcomes.jsonl",
+      "role": "day09 formal run key artifact",
+      "sha256": "f50bf5c6a121c215c4123252b7d168fd1506979bf1603792c620ca535ff2d4d9",
+      "size_bytes": 99354
+    },
+    {
+      "path": "runs/day09/day9_20261119_080843_288841fc/checkpoint_manifest.json",
+      "role": "day09 formal run key artifact",
+      "sha256": "54b390a05359de7aefa84bd75f66b3704eb16d6abf2df195fea725574b78ae97",
+      "size_bytes": 25276
+    },
+    {
+      "path": "runs/day09/day9_20261119_080843_288841fc/eligibility_manifest.json",
+      "role": "day09 formal run key artifact",
+      "sha256": "a1c1c3c2447d0af406a9b4516467f5aa0d17bc31e392af46085dab39b453e67a",
+      "size_bytes": 1750
+    },
+    {
+      "path": "runs/day09/day9_20261119_080843_288841fc/intervention_summary.json",
+      "role": "day09 formal run key artifact",
+      "sha256": "ee843b5b07c73153493852660af4269dbc954a1b9379565b359988629a1c2f32",
+      "size_bytes": 2193
+    },
+    {
+      "path": "runs/day09/day9_20261119_080843_288841fc/utility_dataset.json",
+      "role": "day09 formal run key artifact",
+      "sha256": "f7b90de47189d14efdd3a68537500fe2861652bdc376a3d74b797ce4cce4eb23",
+      "size_bytes": 113862
+    },
+    {
+      "path": "runs/day10/day10_20261119_082058_aab1d057/calibration_curves.json",
+      "role": "day10 formal run key artifact",
+      "sha256": "3d6cb55164ff5e086ba863e2b6ed61e7fce3195bf252e23272f10b9f3f1045f9",
+      "size_bytes": 924
+    },
+    {
+      "path": "runs/day10/day10_20261119_082058_aab1d057/feature_importance.json",
+      "role": "day10 formal run key artifact",
+      "sha256": "4ba62e70848f67faa90ae4399893b0f7820deb552deab5bff778e03c6a928b4e",
+      "size_bytes": 2380
+    },
+    {
+      "path": "runs/day10/day10_20261119_082058_aab1d057/leakage_audit.json",
+      "role": "day10 formal run key artifact",
+      "sha256": "77cd16e90db1e920b1ec15b7f00c39682759fadeae757c2c0a6e14503f7fe3f4",
+      "size_bytes": 1608
+    },
+    {
+      "path": "runs/day10/day10_20261119_082058_aab1d057/metrics.json",
+      "role": "day10 formal run key artifact",
+      "sha256": "65d794c193ca42be8ef12a81e8d8bd9de6afe2b4d38b88529093e51e3ff9a1a7",
+      "size_bytes": 12812
+    },
+    {
+      "path": "runs/day10/day10_20261119_082058_aab1d057/oof_predictions.jsonl",
+      "role": "day10 formal run key artifact",
+      "sha256": "30a00b473d643f74105b67e3d0938300da48099272f5bc5d426592d3f484e7ea",
+      "size_bytes": 10549
+    },
+    {
+      "path": "runs/day10/day10_20261119_082058_aab1d057/risk_dataset.json",
+      "role": "day10 formal run key artifact",
+      "sha256": "c14805340a021c9270f64ca527d9bb25d2a73ca6ca48126b85d2fe7122ee51c6",
+      "size_bytes": 24763
+    },
+    {
+      "path": "runs/day10/day10_20261119_082058_aab1d057/training_summary.json",
+      "role": "day10 formal run key artifact",
+      "sha256": "73886d6f557571dff6206c6b862a7fbbf1aedc9c582d189512d764658de0c81b",
+      "size_bytes": 2638
+    },
+    {
+      "path": "runs/day11/day11_20261119_082900_e8d013ce/cost_metrics.json",
+      "role": "day11 formal run key artifact",
+      "sha256": "440bfacc141b77a6b65334cfe097ed4acf41a9aec76ba5d1603cf37f8d8283cf",
+      "size_bytes": 1104
+    },
+    {
+      "path": "runs/day11/day11_20261119_082900_e8d013ce/coverage_audit.json",
+      "role": "day11 formal run key artifact",
+      "sha256": "550c830d327c26e67716b052bdfd4d18f75f6dc621338d3ce9d47890fb3936d8",
+      "size_bytes": 2127
+    },
+    {
+      "path": "runs/day11/day11_20261119_082900_e8d013ce/offline_policy_records.json",
+      "role": "day11 formal run key artifact",
+      "sha256": "e9409b4b6b7d48ece4ab73b297aae1fdd90be0311395f596c1729eddb3928e29",
+      "size_bytes": 3926
+    },
+    {
+      "path": "runs/day11/day11_20261119_082900_e8d013ce/oof_utility_predictions.jsonl",
+      "role": "day11 formal run key artifact",
+      "sha256": "b5469e2b253e1f7a5478d660cd1ad12de6b933239356d711679f07eafc12aa07",
+      "size_bytes": 32228
+    },
+    {
+      "path": "runs/day11/day11_20261119_082900_e8d013ce/outcome_metrics.json",
+      "role": "day11 formal run key artifact",
+      "sha256": "253b9c7c3bd491825aad32e3c26770554ab7d8dd8968f538f9e1d755ee6d03cb",
+      "size_bytes": 9783
+    },
+    {
+      "path": "runs/day11/day11_20261119_082900_e8d013ce/training_summary.json",
+      "role": "day11 formal run key artifact",
+      "sha256": "f64d3bd7337260dbde8c67454a761335362201e8a704b98237d7f50b00775622",
+      "size_bytes": 14870
+    },
+    {
+      "path": "runs/day11/day11_20261119_082900_e8d013ce/utility_metrics.json",
+      "role": "day11 formal run key artifact",
+      "sha256": "492346f8c5165a5cc077ca5613768a94a395acd07f6ba538e18d28d40b861b7d",
+      "size_bytes": 477
+    },
+    {
+      "path": "runs/day11/day11_20261119_082900_e8d013ce/utility_training_dataset.json",
+      "role": "day11 formal run key artifact",
+      "sha256": "9b9b86450d346d2c6f521fef9a39b6681cec626e103722c61567019294dcf2c0",
+      "size_bytes": 88871
+    },
+    {
+      "path": "runs/day12/day12_20261119_083943_b18d954e/policy_decisions.jsonl",
+      "role": "day12 formal run key artifact",
+      "sha256": "54a52a0e341cd0942ca1aa3bfc4eaf2ef9864148fab48a668fc6e690bf185eab",
+      "size_bytes": 22471
+    },
+    {
+      "path": "runs/day12/day12_20261119_083943_b18d954e/policy_e2e_records.json",
+      "role": "day12 formal run key artifact",
+      "sha256": "2af94f6de2cdf62f2afd6e31bada6417436d784973337537ae9efa1101ea4873",
+      "size_bytes": 76923
+    },
+    {
+      "path": "runs/day12/day12_20261119_083943_b18d954e/policy_summary.json",
+      "role": "day12 formal run key artifact",
+      "sha256": "a03dd0589d0301e82ee9ade1f7a24d496df95b9ca307f187b79b75db2b211a83",
+      "size_bytes": 2309
+    },
+    {
+      "path": "runs/day12/day12_20261119_083943_b18d954e/safety_probes.json",
+      "role": "day12 formal run key artifact",
+      "sha256": "8c0c05b623c34df81fcba97df40b03e61dcb057e4b9f8c351e89453e1fe107b9",
+      "size_bytes": 7325
+    },
+    {
+      "path": "runs/day12/day12_20261119_083943_b18d954e/selected_branch_outcomes.jsonl",
+      "role": "day12 formal run key artifact",
+      "sha256": "0deb1410a03cb0659dc6d01058cfb12078fad55ea1ba45e2a2294bb9f8f09b5a",
+      "size_bytes": 37916
+    },
+    {
+      "path": "runs/day13/day13_20261119_085002_5754c690/experiment_metrics.json",
+      "role": "day13 formal run key artifact",
+      "sha256": "423fc5fd0b2056dd0f3089ecce89c1b2b76228f0a780d8f2a794822c05482c5b",
+      "size_bytes": 91672
+    },
+    {
+      "path": "runs/day13/day13_20261119_085002_5754c690/main_experiment_summary.json",
+      "role": "day13 formal run key artifact",
+      "sha256": "6df2b13ff9570f13a0a4cc0068347101574199e373a4e8ab28840d22e0229081",
+      "size_bytes": 99479
+    },
+    {
+      "path": "runs/day13/day13_20261119_085002_5754c690/paired_comparisons.json",
+      "role": "day13 formal run key artifact",
+      "sha256": "38b7f327935d353b3c7760b607cc9e6e389d93223a1b3ae851acaa8423ec8864",
+      "size_bytes": 2928
+    },
+    {
+      "path": "runs/day13/day13_20261119_085002_5754c690/policy_task_results.jsonl",
+      "role": "day13 formal run key artifact",
+      "sha256": "37cfe796313a9e5e779751b2f4138a80b31b480b339c84a28eb2a31ef1537c97",
+      "size_bytes": 568174
+    },
+    {
+      "path": "runs/day13/day13_20261119_085002_5754c690/selected_branch_outcomes.jsonl",
+      "role": "day13 formal run key artifact",
+      "sha256": "ec20e2a6095f9fdd8eff42844a190dde104ba46b576ae284d7e2d4d0394660c8",
+      "size_bytes": 347037
+    },
+    {
+      "path": "runs/day14/day14_20261119_090131_2c077c82/normalized_observations.jsonl",
+      "role": "day14 formal run key artifact",
+      "sha256": "c25fd9329b3f3c8cbfe15e3672fc8d266f373b0c2b2e40f072632beae74ddbe1",
+      "size_bytes": 9246
+    },
+    {
+      "path": "runs/day14/day14_20261119_090131_2c077c82/normalized_tool_calls.jsonl",
+      "role": "day14 formal run key artifact",
+      "sha256": "d51aab2288dda21ca6b1c425096f99dbeadb75398f01c076a5a8666f3caebef6",
+      "size_bytes": 60124
+    },
+    {
+      "path": "runs/day14/day14_20261119_090131_2c077c82/recovery_bench_demo_summary.json",
+      "role": "day14 formal run key artifact",
+      "sha256": "6f4199af0acd55c6b7a929a7259a67e2a99b49d357013bde4d54f39d7d8f47e6",
+      "size_bytes": 2352
+    },
+    {
+      "path": "runs/day14/day14_20261119_090131_2c077c82/selected_trials.jsonl",
+      "role": "day14 formal run key artifact",
+      "sha256": "3d954900ecf2ab7f50f641e196c022363ddf5f476155d9e7af94c89e901a1455",
+      "size_bytes": 69528
+    },
+    {
+      "path": "runs/day14/day14_20261119_090131_2c077c82/source_artifact_manifest.json",
+      "role": "day14 formal run key artifact",
+      "sha256": "0092c50b10135c8ab3345526e6da8186e449f300df670597eb4132b6a20d967c",
+      "size_bytes": 4638
+    }
+  ],
+  "project_root": ".",
+  "recorded_findings": [
+    {
+      "code": "DAY08_CONTROLLER_TYPE_ABSENT",
+      "count": 43,
+      "detail": "Day 8 model-attempt records predate the branch controller schema and do not contain controller_type.",
+      "severity": "schema_observation"
+    },
+    {
+      "code": "DAY09_CHECKPOINT_HASH_ALIAS",
+      "count": 20,
+      "detail": "Day 9 checkpoint records use state_hash for all checkpoints; no separate checkpoint_hash field exists.",
+      "severity": "schema_observation"
+    },
+    {
+      "code": "DAY08_EXPECTED_TASK_RETRIES",
+      "count": 19,
+      "detail": "Repeated task_id values are expected retries; task_run_id remains unique.",
+      "severity": "informational"
+    }
+  ],
+  "research_claim": "None. This manifest establishes provenance and integrity only.",
+  "schema_version": "phase2-historical-artifact-manifest-v1",
+  "scope": "P1-D1 immutable Day 7--14 historical baseline",
+  "stage_inventory": {
+    "day07": {
+      "configs": [
+        "configs/task_templates.yaml",
+        "configs/tasks.yaml"
+      ],
+      "report": "docs/daily_reports/day_07_report.md",
+      "run_id": "day7_20261118_033944_4b4bdfa9",
+      "run_path": "runs/day07/day7_20261118_033944_4b4bdfa9",
+      "summary": "runs/day07/day7_20261118_033944_4b4bdfa9/task_results.json"
+    },
+    "day08": {
+      "configs": [
+        "configs/day8_collection.yaml"
+      ],
+      "report": "docs/daily_reports/day_08_report.md",
+      "run_id": "day8_20261119_074032_7ec4c41e",
+      "run_path": "runs/day08/day8_20261119_074032_7ec4c41e",
+      "summary": "runs/day08/day8_20261119_074032_7ec4c41e/collection_summary.json"
+    },
+    "day09": {
+      "configs": [
+        "configs/day9_interventions.yaml"
+      ],
+      "report": "docs/daily_reports/day_09_report.md",
+      "run_id": "day9_20261119_080843_288841fc",
+      "run_path": "runs/day09/day9_20261119_080843_288841fc",
+      "summary": "runs/day09/day9_20261119_080843_288841fc/intervention_summary.json"
+    },
+    "day10": {
+      "configs": [
+        "configs/day10_risk.yaml"
+      ],
+      "model_path": "models/risk/day10_20261119_082058_aab1d057",
+      "report": "docs/daily_reports/day_10_report.md",
+      "run_id": "day10_20261119_082058_aab1d057",
+      "run_path": "runs/day10/day10_20261119_082058_aab1d057",
+      "summary": "runs/day10/day10_20261119_082058_aab1d057/training_summary.json"
+    },
+    "day11": {
+      "configs": [
+        "configs/day11_utility.yaml"
+      ],
+      "model_path": "models/utility/day11_20261119_082900_e8d013ce",
+      "report": "docs/daily_reports/day_11_report.md",
+      "run_id": "day11_20261119_082900_e8d013ce",
+      "run_path": "runs/day11/day11_20261119_082900_e8d013ce",
+      "summary": "runs/day11/day11_20261119_082900_e8d013ce/training_summary.json"
+    },
+    "day12": {
+      "configs": [
+        "configs/day12_policy.yaml"
+      ],
+      "report": "docs/daily_reports/day_12_report.md",
+      "run_id": "day12_20261119_083943_b18d954e",
+      "run_path": "runs/day12/day12_20261119_083943_b18d954e",
+      "summary": "runs/day12/day12_20261119_083943_b18d954e/policy_summary.json"
+    },
+    "day13": {
+      "configs": [
+        "configs/day13_experiment.yaml"
+      ],
+      "report": "docs/daily_reports/day_13_report.md",
+      "run_id": "day13_20261119_085002_5754c690",
+      "run_path": "runs/day13/day13_20261119_085002_5754c690",
+      "summary": "runs/day13/day13_20261119_085002_5754c690/main_experiment_summary.json"
+    },
+    "day14": {
+      "configs": [
+        "configs/day14_recovery_bench.yaml"
+      ],
+      "report": "docs/daily_reports/day_14_report.md",
+      "run_id": "day14_20261119_090131_2c077c82",
+      "run_path": "runs/day14/day14_20261119_090131_2c077c82",
+      "summary": "runs/day14/day14_20261119_090131_2c077c82/recovery_bench_demo_summary.json"
+    }
+  }
+}

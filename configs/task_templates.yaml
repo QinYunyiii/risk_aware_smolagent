@@ -1,0 +1,250 @@
+version: 1
+instances_per_template: 5
+templates:
+  # Data Analysis: 6 train / 2 validation / 2 test
+  - template_id: data_filter_category_eq
+    domain: data_analysis
+    split: train
+    family: filter
+    base_seed: 71000
+    parameters: {column: category, operator: eq}
+  - template_id: data_filter_amount_gt
+    domain: data_analysis
+    split: train
+    family: filter
+    base_seed: 71010
+    parameters: {column: amount, operator: gt}
+  - template_id: data_filter_score_gte
+    domain: data_analysis
+    split: train
+    family: filter
+    base_seed: 71020
+    parameters: {column: score, operator: gte}
+  - template_id: data_filter_latency_lt
+    domain: data_analysis
+    split: train
+    family: filter
+    base_seed: 71030
+    parameters: {column: latency, operator: lt}
+  - template_id: data_filter_priority_lte
+    domain: data_analysis
+    split: validation
+    family: filter
+    base_seed: 71040
+    parameters: {column: priority, operator: lte}
+  - template_id: data_filter_inventory_gt
+    domain: data_analysis
+    split: test
+    family: filter
+    base_seed: 71050
+    parameters: {column: inventory, operator: gt}
+  - template_id: data_aggregate_units_sum
+    domain: data_analysis
+    split: train
+    family: aggregate
+    base_seed: 71060
+    parameters: {group_column: product, value_column: units, operation: sum}
+  - template_id: data_aggregate_latency_mean
+    domain: data_analysis
+    split: train
+    family: aggregate
+    base_seed: 71070
+    parameters: {group_column: service, value_column: latency, operation: mean}
+  - template_id: data_aggregate_events_count
+    domain: data_analysis
+    split: validation
+    family: aggregate
+    base_seed: 71080
+    parameters: {group_column: event_type, value_column: value, operation: count}
+  - template_id: data_aggregate_revenue_sum
+    domain: data_analysis
+    split: test
+    family: aggregate
+    base_seed: 71090
+    parameters: {group_column: region, value_column: revenue, operation: sum}
+
+  # File Retrieval: 6 train / 2 validation / 2 test
+  - template_id: file_list_project_tree
+    domain: file_retrieval
+    split: train
+    family: list
+    base_seed: 72000
+    parameters: {nested: true}
+  - template_id: file_list_reports
+    domain: file_retrieval
+    split: train
+    family: list
+    base_seed: 72010
+    parameters: {nested: false}
+  - template_id: file_search_project_code
+    domain: file_retrieval
+    split: train
+    family: search
+    base_seed: 72020
+    parameters: {match_count: 1, line_number: 2}
+  - template_id: file_search_casefold
+    domain: file_retrieval
+    split: train
+    family: search
+    base_seed: 72030
+    parameters: {match_count: 1, line_number: 2, casefold: true}
+  - template_id: file_search_multiple
+    domain: file_retrieval
+    split: test
+    family: search
+    base_seed: 72040
+    parameters: {match_count: 2, line_number: 2}
+  - template_id: file_read_exact_note
+    domain: file_retrieval
+    split: train
+    family: read
+    base_seed: 72050
+    parameters: {style: exact}
+  - template_id: file_search_line_position
+    domain: file_retrieval
+    split: validation
+    family: search
+    base_seed: 72060
+    parameters: {match_count: 1, line_number: 3}
+  - template_id: file_list_nested_assets
+    domain: file_retrieval
+    split: validation
+    family: list
+    base_seed: 72070
+    parameters: {nested: true}
+  - template_id: file_read_unicode
+    domain: file_retrieval
+    split: test
+    family: read
+    base_seed: 72080
+    parameters: {style: unicode}
+  - template_id: file_read_multiline
+    domain: file_retrieval
+    split: train
+    family: read
+    base_seed: 72090
+    parameters: {style: multiline}
+
+  # API Workflow: 6 train / 2 validation / 2 test
+  - template_id: api_inventory_primary
+    domain: api_workflow
+    split: train
+    family: inventory
+    base_seed: 73000
+    parameters: {quantity_offset: 1}
+  - template_id: api_inventory_backup
+    domain: api_workflow
+    split: train
+    family: inventory
+    base_seed: 73010
+    parameters: {quantity_offset: 5}
+  - template_id: api_inventory_low_stock
+    domain: api_workflow
+    split: train
+    family: inventory
+    base_seed: 73020
+    parameters: {quantity_offset: 0}
+  - template_id: api_inventory_bulk_stock
+    domain: api_workflow
+    split: validation
+    family: inventory
+    base_seed: 73030
+    parameters: {quantity_offset: 50}
+  - template_id: api_order_pending_read
+    domain: api_workflow
+    split: train
+    family: get_order
+    base_seed: 73040
+    parameters: {initial_status: pending}
+  - template_id: api_order_processing_read
+    domain: api_workflow
+    split: train
+    family: get_order
+    base_seed: 73050
+    parameters: {initial_status: processing}
+  - template_id: api_order_shipped_read
+    domain: api_workflow
+    split: validation
+    family: get_order
+    base_seed: 73060
+    parameters: {initial_status: shipped}
+  - template_id: api_order_start_processing
+    domain: api_workflow
+    split: train
+    family: update_order
+    base_seed: 73070
+    parameters: {initial_status: pending, new_status: processing}
+  - template_id: api_order_ship
+    domain: api_workflow
+    split: test
+    family: update_order
+    base_seed: 73080
+    parameters: {initial_status: processing, new_status: shipped}
+  - template_id: api_order_cancel
+    domain: api_workflow
+    split: test
+    family: update_order
+    base_seed: 73090
+    parameters: {initial_status: pending, new_status: cancelled}
+
+  # Calculation & Logic: 6 train / 2 validation / 2 test
+  - template_id: logic_calculate_addition
+    domain: calculation_logic
+    split: train
+    family: calculator
+    base_seed: 74000
+    parameters: {kind: addition}
+  - template_id: logic_calculate_subtraction
+    domain: calculation_logic
+    split: train
+    family: calculator
+    base_seed: 74010
+    parameters: {kind: subtraction}
+  - template_id: logic_calculate_multiplication
+    domain: calculation_logic
+    split: train
+    family: calculator
+    base_seed: 74020
+    parameters: {kind: multiplication}
+  - template_id: logic_calculate_division
+    domain: calculation_logic
+    split: train
+    family: calculator
+    base_seed: 74030
+    parameters: {kind: division}
+  - template_id: logic_calculate_parentheses
+    domain: calculation_logic
+    split: validation
+    family: calculator
+    base_seed: 74040
+    parameters: {kind: parentheses}
+  - template_id: logic_calculate_power
+    domain: calculation_logic
+    split: test
+    family: calculator
+    base_seed: 74050
+    parameters: {kind: power}
+  - template_id: logic_convert_metres_kilometres
+    domain: calculation_logic
+    split: train
+    family: unit_conversion
+    base_seed: 74060
+    parameters: {from_unit: m, to_unit: km, factor: "0.001"}
+  - template_id: logic_convert_kilometres_metres
+    domain: calculation_logic
+    split: validation
+    family: unit_conversion
+    base_seed: 74070
+    parameters: {from_unit: km, to_unit: m, factor: "1000"}
+  - template_id: logic_convert_grams_kilograms
+    domain: calculation_logic
+    split: test
+    family: unit_conversion
+    base_seed: 74080
+    parameters: {from_unit: g, to_unit: kg, factor: "0.001"}
+  - template_id: logic_validate_tolerance
+    domain: calculation_logic
+    split: train
+    family: validation
+    base_seed: 74090
+    parameters: {}

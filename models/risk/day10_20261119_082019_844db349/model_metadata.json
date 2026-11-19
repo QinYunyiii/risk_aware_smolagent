@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "run_id": "day10_20261119_082019_844db349",
+  "feature_names": [
+    "execution_progress_fraction",
+    "tool_call_count",
+    "observed_history_count",
+    "error_count",
+    "repeated_action_count",
+    "no_progress_count",
+    "recent_latency_mean_seconds",
+    "recent_latency_max_seconds",
+    "historical_tool_success_rate",
+    "tokens_used",
+    "token_budget_fraction",
+    "tool_budget_fraction",
+    "latency_budget_fraction",
+    "pending_operation_read_only",
+    "failure_present",
+    "failure_response_received",
+    "fault_f1_timeout",
+    "fault_f2_api_503",
+    "fault_f3_invalid_argument",
+    "fault_f4_stale_observation",
+    "fault_f5_repeated_action",
+    "fault_f6_partial_failure",
+    "domain_data_analysis",
+    "domain_file_retrieval",
+    "domain_api_workflow",
+    "domain_calculation_logic"
+  ],
+  "catalog_sha256": "8a76a5c2b5d826832f2c604477c606d699a19a8ceee35b923cedc336b9e9d775",
+  "source_day9_run": "runs/day09/day9_20261119_080843_288841fc",
+  "label": "continue_failure",
+  "models": {
+    "logistic_regression": "/home/three/projects/risk-aware-smolagents/models/risk/day10_20261119_082019_844db349/logistic_regression.joblib",
+    "lightgbm": "/home/three/projects/risk-aware-smolagents/models/risk/day10_20261119_082019_844db349/lightgbm.joblib"
+  }
+}

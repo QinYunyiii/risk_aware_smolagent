@@ -1,0 +1,23 @@
+version: 1
+experiment_id: day11_initial_utility_estimation
+source_day9_run: runs/day09/day9_20261119_080843_288841fc
+catalog_sha256: 8a76a5c2b5d826832f2c604477c606d699a19a8ceee35b923cedc336b9e9d775
+actions: [CONTINUE, RETRY, REPLAN]
+feature_schema_version: 1
+random_seed: 20261119
+cv_folds: 5
+hyperparameter_search: false
+outcome_model:
+  C: 1.0
+  max_iter: 2000
+  class_weight: balanced
+  beta_prior_alpha: 1.0
+  beta_prior_beta: 1.0
+cost_model:
+  ridge_alpha: 1.0
+cost_weights:
+  tokens: 0.001
+  tool_calls: 1.0
+  latency_seconds: 1.0
+utility_lambda: 0.1
+weight_selection: pre_specified_train_only_engineering_default

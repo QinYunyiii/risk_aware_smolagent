@@ -1,0 +1,15 @@
+version: 1
+catalog_sha256: 8a76a5c2b5d826832f2c604477c606d699a19a8ceee35b923cedc336b9e9d775
+experiment_id: day8_initial_real_model
+selection:
+  split: train
+  instance_suffix: _001
+  expected_task_count: 24
+  expected_per_domain: 6
+agent:
+  max_steps: 5
+  tool_version: day8-v1
+collection:
+  router: round_robin
+  resume_completed_task_ids: true
+  minimum_log_completeness: 0.95

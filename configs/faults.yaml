@@ -1,0 +1,49 @@
+version: 1
+profiles:
+  - fault_id: f0_no_fault
+    fault_type: F0_NO_FAULT
+    seed: 4100
+    target_tool: calculator
+    probability: 0.0
+
+  - fault_id: f1_timeout
+    fault_type: F1_TIMEOUT
+    seed: 4101
+    target_tool: query_inventory
+    call_indices: [1]
+    parameters:
+      commit_status: unknown
+
+  - fault_id: f2_api_503
+    fault_type: F2_API_503
+    seed: 4102
+    target_tool: query_inventory
+    call_indices: [1]
+
+  - fault_id: f3_invalid_argument
+    fault_type: F3_INVALID_ARGUMENT
+    seed: 4103
+    target_tool: calculator
+    call_indices: [1]
+
+  - fault_id: f4_stale_observation
+    fault_type: F4_STALE_OBSERVATION
+    seed: 4104
+    target_tool: query_inventory
+    call_indices: [1]
+    parameters:
+      stale_result: {sku: widget, quantity: 99}
+
+  - fault_id: f5_repeated_action
+    fault_type: F5_REPEATED_ACTION
+    seed: 4105
+    target_tool: calculator
+    call_indices: [2]
+
+  - fault_id: f6_partial_failure
+    fault_type: F6_PARTIAL_FAILURE
+    seed: 4106
+    target_tool: update_order
+    call_indices: [1]
+    parameters:
+      commit: true

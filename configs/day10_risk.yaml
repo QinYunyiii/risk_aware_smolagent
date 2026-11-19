@@ -1,0 +1,23 @@
+version: 1
+experiment_id: day10_initial_risk_prediction
+source_day9_run: runs/day09/day9_20261119_080843_288841fc
+catalog_sha256: 8a76a5c2b5d826832f2c604477c606d699a19a8ceee35b923cedc336b9e9d775
+label_action: CONTINUE
+positive_label: continue_failure
+feature_schema_version: 1
+random_seed: 20261119
+cv_folds: 5
+decision_threshold: 0.5
+hyperparameter_search: false
+logistic_regression:
+  C: 1.0
+  max_iter: 2000
+  class_weight: balanced
+lightgbm:
+  n_estimators: 80
+  learning_rate: 0.05
+  num_leaves: 7
+  max_depth: 3
+  min_child_samples: 2
+  reg_lambda: 1.0
+  class_weight: balanced

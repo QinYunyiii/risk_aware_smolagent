@@ -1,0 +1,24 @@
+version: 1
+experiment_id: day14_recovery_bench_read_only_validation
+recovery_bench_root: /home/three/projects/agent-intervention/recovery-bench
+recovery_bench_git_head: c5f83f2b
+trials_root: /home/three/projects/agent-intervention/recovery-bench/runs/initial-claude-haiku-4-5-20251001-20260303_194859
+harbor_version: 0.4.0
+harbor_executable: /home/three/projects/agent-intervention/.venv/bin/harbor
+supported_atif_schemas:
+  - ATIF-v1.6
+include_raw_content: false
+checkpoint_restore_supported: false
+selected_trials:
+  - trial_directory: 004ac3ef-headless-terminal__BQ7FNfS
+    task_name: headless-terminal
+    expected_status: success
+    task_checksum: 0f08b1ccc560ac08b8420b4a493a3b4c5354e2ace9f0cbe63a44e861e46c780d
+  - trial_directory: 03e4ef34-path-tracing-reverse__sryqGdC
+    task_name: path-tracing-reverse
+    expected_status: verifier_failure
+    task_checksum: 93852df3e66fe6e3b04e1f1039b06b03d5b1a36787e876a094d6c9011653ffae
+  - trial_directory: 55c0dd21-caffe-cifar-10__7x559PM
+    task_name: caffe-cifar-10
+    expected_status: agent_error
+    task_checksum: 69e68a75ace210a7fdbce0d1605c0d530a7b5119791d91c6786f84313b30fc3a

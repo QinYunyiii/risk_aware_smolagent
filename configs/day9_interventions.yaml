@@ -1,0 +1,9 @@
+version: 1
+experiment_id: day9_initial_intervention_local
+source_day8_results: runs/day08/day8_20261119_074032_7ec4c41e/logical_task_results.json
+catalog_sha256: 8a76a5c2b5d826832f2c604477c606d699a19a8ceee35b923cedc336b9e9d775
+expected_source_tasks: 24
+expected_eligible_checkpoints: 20
+actions: [CONTINUE, RETRY, REPLAN]
+controller_type: deterministic_local_reference
+allow_infra_sources: false

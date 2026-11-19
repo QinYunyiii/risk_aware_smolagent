@@ -1,0 +1,149 @@
+version: 1
+tasks:
+  - task_id: data_filter_north
+    template_id: data_filter_region
+    instance_id: data_filter_region_001
+    domain: data_analysis
+    dataset_role: day3_smoke
+    seed: 3101
+    prompt: Select every North-region row from sales.csv.
+    initial_state:
+      files:
+        - path: data/sales.csv
+          content: |
+            id,region,amount
+            a,North,12
+            b,South,9
+            c,North,7
+    reference_steps:
+      - tool: filter_data
+        arguments: {path: data/sales.csv, column: region, operator: eq, value: North}
+    expected:
+      result:
+        - {id: a, region: North, amount: "12"}
+        - {id: c, region: North, amount: "7"}
+
+  - task_id: data_aggregate_product
+    template_id: data_aggregate_sum
+    instance_id: data_aggregate_sum_001
+    domain: data_analysis
+    dataset_role: day3_smoke
+    seed: 3102
+    prompt: Sum amount by product in revenue.csv.
+    initial_state:
+      files:
+        - path: data/revenue.csv
+          content: |
+            product,amount
+            widget,10
+            gadget,5
+            widget,4
+    reference_steps:
+      - tool: aggregate_data
+        arguments: {path: data/revenue.csv, group_by: product, value_column: amount, operation: sum}
+    expected:
+      result: {gadget: 5.0, widget: 14.0}
+
+  - task_id: file_search_phoenix
+    template_id: file_search_keyword
+    instance_id: file_search_keyword_001
+    domain: file_retrieval
+    dataset_role: day3_smoke
+    seed: 3201
+    prompt: Find the file and line containing Project Phoenix.
+    initial_state:
+      files:
+        - {path: docs/alpha.txt, content: "Routine maintenance only.\n"}
+        - {path: docs/roadmap.txt, content: "Project Phoenix launches Friday.\nOwner: Mei.\n"}
+    reference_steps:
+      - tool: search_files
+        arguments: {directory: docs, query: Project Phoenix}
+    expected:
+      result:
+        - {path: docs/roadmap.txt, line_number: 1, text: Project Phoenix launches Friday.}
+
+  - task_id: file_read_owner
+    template_id: file_read_exact
+    instance_id: file_read_exact_001
+    domain: file_retrieval
+    dataset_role: day3_smoke
+    seed: 3202
+    prompt: Read the owner note exactly.
+    initial_state:
+      files:
+        - {path: notes/owner.txt, content: "Owner: Lin\nTeam: Reliability\n"}
+        - {path: notes/archive.txt, content: "Deprecated\n"}
+    reference_steps:
+      - tool: read_file
+        arguments: {path: notes/owner.txt}
+    expected:
+      result: "Owner: Lin\nTeam: Reliability\n"
+
+  - task_id: api_inventory_widget
+    template_id: api_inventory_query
+    instance_id: api_inventory_query_001
+    domain: api_workflow
+    dataset_role: day3_smoke
+    seed: 3301
+    prompt: Return the current inventory for widget.
+    initial_state:
+      inventory:
+        - {sku: widget, quantity: 12}
+        - {sku: gadget, quantity: 4}
+    reference_steps:
+      - tool: query_inventory
+        arguments: {sku: widget}
+    expected:
+      result: {sku: widget, quantity: 12}
+      database:
+        inventory:
+          widget: {quantity: 12}
+
+  - task_id: api_ship_order
+    template_id: api_order_update
+    instance_id: api_order_update_001
+    domain: api_workflow
+    dataset_role: day3_smoke
+    seed: 3302
+    prompt: Move order ord-100 from processing to shipped exactly once.
+    initial_state:
+      orders:
+        - {order_id: ord-100, status: processing, version: 1}
+    reference_steps:
+      - tool: update_order
+        arguments:
+          order_id: ord-100
+          expected_status: processing
+          new_status: shipped
+          idempotency_key: api_ship_order-step-1
+    expected:
+      result: {order_id: ord-100, status: shipped, version: 2, idempotent_replay: false}
+      database:
+        orders:
+          ord-100: {status: shipped, version: 2}
+
+  - task_id: logic_multistep_calculation
+    template_id: logic_arithmetic
+    instance_id: logic_arithmetic_001
+    domain: calculation_logic
+    dataset_role: day3_smoke
+    seed: 3401
+    prompt: Calculate (18 + 6) * 3 / 4.
+    reference_steps:
+      - tool: calculator
+        arguments: {expression: "(18 + 6) * 3 / 4"}
+    expected:
+      result: "18"
+
+  - task_id: logic_convert_distance
+    template_id: logic_unit_conversion
+    instance_id: logic_unit_conversion_001
+    domain: calculation_logic
+    dataset_role: day3_smoke
+    seed: 3402
+    prompt: Convert 1500 metres to kilometres.
+    reference_steps:
+      - tool: unit_converter
+        arguments: {value: "1500", from_unit: m, to_unit: km}
+    expected:
+      result: "1.5"

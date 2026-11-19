@@ -1,0 +1,20 @@
+model_id: Qwen/Qwen3-8B
+model_version: Qwen3-8B-modelscope-snapshot
+prompt_version: day2-v1
+api_key_env: RISK_AGENT_API_KEY
+ca_bundle_env: RISK_AGENT_CA_BUNDLE
+request_timeout_seconds: 120.0
+connect_timeout_seconds: 30.0
+router_strategy: round_robin
+inference:
+  seed: 20261118
+  temperature: 0.0
+  max_tokens: 256
+  chat_template_kwargs:
+    enable_thinking: false
+workers:
+  - worker_id: worker-0
+    base_url: https://localhost:8000/v1
+  - worker_id: worker-1
+    base_url: https://localhost:8001/v1
+
