@@ -1,0 +1,272 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://minitoolbench-r.local/schemas/checkpoint-v2.0.0-rc1.json",
+  "title": "MiniToolBench-R Complete Agent Checkpoint v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "identity",
+    "agent_context",
+    "environment_state",
+    "runtime_state",
+    "hashes",
+    "artifacts",
+    "capture_invariants"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0.0-rc1"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "experiment_id", "run_id", "task_run_id", "template_id", "task_id",
+        "instance_id", "split", "checkpoint_id", "step_index", "model_id",
+        "model_version", "worker_id", "prompt_version", "tool_version",
+        "verifier_version", "controller_type", "execution_mode", "created_at"
+      ],
+      "properties": {
+        "experiment_id": {"type": "string", "minLength": 1},
+        "run_id": {"type": "string", "minLength": 1},
+        "task_run_id": {"type": "string", "minLength": 1},
+        "template_id": {"type": "string", "minLength": 1},
+        "task_id": {"type": "string", "minLength": 1},
+        "instance_id": {"type": "string", "minLength": 1},
+        "split": {"enum": ["train", "validation", "test"]},
+        "checkpoint_id": {"type": "string", "minLength": 1},
+        "step_index": {"type": "integer", "minimum": 1},
+        "model_id": {"type": "string", "minLength": 1},
+        "model_version": {"type": "string", "minLength": 1},
+        "worker_id": {"type": "string", "minLength": 1},
+        "prompt_version": {"type": "string", "minLength": 1},
+        "tool_version": {"type": "string", "minLength": 1},
+        "verifier_version": {"type": "string", "minLength": 1},
+        "controller_type": {"const": "qwen3_model"},
+        "execution_mode": {"enum": ["model_backed_smoke", "model_backed_formal"]},
+        "created_at": {"type": "string", "format": "date-time"},
+        "catalog_hash": {"$ref": "#/$defs/sha256"},
+        "split_manifest_hash": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "agent_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "framework", "framework_version", "agent_class", "messages_ref",
+        "memory_steps_ref", "latest_action_step_ref", "system_prompt_ref",
+        "task_prompt_ref", "assistant_tool_calls_ref", "tool_observations_ref",
+        "step_number", "next_step_number", "max_steps", "remaining_steps",
+        "tool_registry", "generation_config", "agent_state", "next_model_input_ref"
+      ],
+      "properties": {
+        "framework": {"const": "smolagents"},
+        "framework_version": {"const": "1.26.0"},
+        "agent_class": {"const": "ToolCallingAgent"},
+        "messages_ref": {"$ref": "#/$defs/relative_artifact"},
+        "memory_steps_ref": {"$ref": "#/$defs/relative_artifact"},
+        "latest_action_step_ref": {"$ref": "#/$defs/relative_artifact"},
+        "system_prompt_ref": {"$ref": "#/$defs/relative_artifact"},
+        "task_prompt_ref": {"$ref": "#/$defs/relative_artifact"},
+        "assistant_tool_calls_ref": {"$ref": "#/$defs/relative_artifact"},
+        "tool_observations_ref": {"$ref": "#/$defs/relative_artifact"},
+        "next_model_input_ref": {"$ref": "#/$defs/relative_artifact"},
+        "step_number": {"type": "integer", "minimum": 1},
+        "next_step_number": {"type": "integer", "minimum": 2},
+        "max_steps": {"type": "integer", "minimum": 2},
+        "remaining_steps": {"type": "integer", "minimum": 1},
+        "tool_registry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["version", "schema_ref", "schema_hash", "ordered_tool_names"],
+          "properties": {
+            "version": {"type": "string", "minLength": 1},
+            "schema_ref": {"$ref": "#/$defs/relative_artifact"},
+            "schema_hash": {"$ref": "#/$defs/sha256"},
+            "ordered_tool_names": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+          }
+        },
+        "generation_config": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["seed", "temperature", "max_tokens", "chat_template_kwargs"],
+          "properties": {
+            "seed": {"type": "integer", "minimum": 0},
+            "temperature": {"type": "number", "minimum": 0},
+            "max_tokens": {"type": "integer", "minimum": 1},
+            "chat_template_kwargs": {"type": "object"}
+          }
+        },
+        "agent_state": {"type": "object"},
+        "planning_interval": {"type": ["integer", "null"], "minimum": 1},
+        "stream_outputs": {"type": "boolean"},
+        "capture_granularity": {"const": "action_step_observation_batch"}
+      }
+    },
+    "environment_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workspace_manifest_ref", "sqlite_backup_ref", "sqlite_logical_dump_ref",
+        "mock_api_state_ref", "file_state_ref", "database_state_ref",
+        "side_effects_ref", "pending_operation"
+      ],
+      "properties": {
+        "workspace_manifest_ref": {"$ref": "#/$defs/relative_artifact"},
+        "sqlite_backup_ref": {"$ref": "#/$defs/relative_artifact"},
+        "sqlite_logical_dump_ref": {"$ref": "#/$defs/relative_artifact"},
+        "mock_api_state_ref": {"$ref": "#/$defs/relative_artifact"},
+        "file_state_ref": {"$ref": "#/$defs/relative_artifact"},
+        "database_state_ref": {"$ref": "#/$defs/relative_artifact"},
+        "side_effects_ref": {"$ref": "#/$defs/relative_artifact"},
+        "pending_operation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "next_step_number"],
+          "properties": {
+            "kind": {"const": "model_generation"},
+            "next_step_number": {"type": "integer", "minimum": 2}
+          }
+        },
+        "latest_completed_operation_ref": {"$ref": "#/$defs/relative_artifact"}
+      }
+    },
+    "runtime_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runtime_ref", "tool_history_ref", "tool_adapter_state_ref",
+        "fault_adapter_state_ref", "budget_state", "resource_usage",
+        "execution_position"
+      ],
+      "properties": {
+        "runtime_ref": {"$ref": "#/$defs/relative_artifact"},
+        "tool_history_ref": {"$ref": "#/$defs/relative_artifact"},
+        "tool_adapter_state_ref": {"$ref": "#/$defs/relative_artifact"},
+        "fault_adapter_state_ref": {"$ref": "#/$defs/relative_artifact"},
+        "budget_state": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_tokens", "max_tool_calls", "max_model_calls", "max_latency_seconds",
+            "prompt_tokens_used", "completion_tokens_used", "tool_calls_used",
+            "model_calls_used", "latency_seconds_used"
+          ],
+          "properties": {
+            "max_tokens": {"type": "integer", "minimum": 1},
+            "max_tool_calls": {"type": "integer", "minimum": 1},
+            "max_model_calls": {"type": "integer", "minimum": 1},
+            "max_latency_seconds": {"type": "number", "exclusiveMinimum": 0},
+            "prompt_tokens_used": {"type": ["integer", "null"], "minimum": 0},
+            "completion_tokens_used": {"type": ["integer", "null"], "minimum": 0},
+            "tool_calls_used": {"type": "integer", "minimum": 0},
+            "model_calls_used": {"type": "integer", "minimum": 1},
+            "latency_seconds_used": {"type": "number", "minimum": 0}
+          }
+        },
+        "resource_usage": {"type": "object"},
+        "execution_position": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["phase", "next_operation"],
+          "properties": {
+            "phase": {"const": "after_tool_observation_before_model_generation"},
+            "next_operation": {"const": "model_generation"}
+          }
+        }
+      }
+    },
+    "hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_state_hash", "next_model_input_hash", "environment_state_hash",
+        "runtime_state_hash", "identity_config_hash", "combined_state_hash"
+      ],
+      "properties": {
+        "agent_state_hash": {"$ref": "#/$defs/sha256"},
+        "next_model_input_hash": {"$ref": "#/$defs/sha256"},
+        "environment_state_hash": {"$ref": "#/$defs/sha256"},
+        "runtime_state_hash": {"$ref": "#/$defs/sha256"},
+        "identity_config_hash": {"$ref": "#/$defs/sha256"},
+        "combined_state_hash": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "size_bytes"],
+        "properties": {
+          "path": {"$ref": "#/$defs/relative_artifact"},
+          "sha256": {"$ref": "#/$defs/sha256"},
+          "size_bytes": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "capture_invariants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_in_memory", "next_model_request_not_started", "non_terminal",
+        "remaining_step_available", "snapshot_synchronous", "verifier_not_run"
+      ],
+      "properties": {
+        "observation_in_memory": {"const": true},
+        "next_model_request_not_started": {"const": true},
+        "non_terminal": {"const": true},
+        "remaining_step_available": {"const": true},
+        "snapshot_synchronous": {"const": true},
+        "verifier_not_run": {"const": true}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "relative_artifact": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    }
+  },
+  "x_hash_policy": {
+    "canonical_encoding": "UTF-8 JSON with sorted keys, compact separators, explicit nulls, stable list order and normalized decimal/float representation",
+    "agent_state_hash_includes": [
+      "canonical full messages including roles/content/tool-call IDs/arguments",
+      "full semantic memory steps",
+      "System Prompt and Task Prompt content",
+      "step/max_steps/remaining_steps/agent state",
+      "tool registry names and public schemas",
+      "generation config"
+    ],
+    "environment_state_hash_includes": [
+      "workspace relative paths and file content hashes",
+      "SQLite logical rows sorted by table primary key plus database bytes checksum",
+      "Mock API state",
+      "idempotency and completed side-effect state",
+      "pending operation and latest completed operation"
+    ],
+    "runtime_state_hash_includes": [
+      "ordered completed tool/model event semantics",
+      "budget usage and limits",
+      "tool adapter counters",
+      "fault adapter RNG/call state required for future behavior",
+      "execution position"
+    ],
+    "excluded_as_volatile": [
+      "created_at and event wall-clock timestamps unless their values appear in Agent messages",
+      "absolute workspace paths",
+      "artifact modification times and inode numbers",
+      "run/checkpoint/branch UUIDs that do not affect model input or future behavior",
+      "logging-only record IDs"
+    ],
+    "identity_config_hash_includes": [
+      "model/model version/Worker identity",
+      "Prompt/tool/verifier versions and content hashes",
+      "catalog and split manifest hashes",
+      "checkpoint schema version"
+    ],
+    "combined_state_hash_formula": "sha256(canonical_json({schema_version,agent_state_hash,next_model_input_hash,environment_state_hash,runtime_state_hash,identity_config_hash}))"
+  }
+}

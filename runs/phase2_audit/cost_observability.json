@@ -1,0 +1,102 @@
+{
+  "aggregate_extra_tokens": {
+    "count": 36,
+    "maximum": 0.0,
+    "minimum": 0.0,
+    "observability_rate": 1.0,
+    "positive_count": 0,
+    "semantic_interpretation": "real zero for this deterministic local-reference execution mode because the branch runner passed total_tokens=0 and made no model call; not evidence that a model-mediated intervention has low token cost",
+    "unique_count": 1,
+    "zero_count": 36
+  },
+  "applicable_branch_count": 36,
+  "checks": {
+    "model_and_wall_clock_not_conflated_with_tool_latency": true,
+    "only_applicable_records_counted_as_observations": true,
+    "token_zero_is_classified_as_no_model_call": true,
+    "tool_calls_fully_observed": true,
+    "tool_latency_fully_observed": true
+  },
+  "evidence": {
+    "measurement": "src/risk_agent/monitoring/execution_monitor.py::ExecutionMonitor.execute_tool",
+    "runner": "src/risk_agent/intervention/runner.py::InterventionBranchRunner",
+    "training_mapping": "src/risk_agent/utility/dataset.py::build_utility_dataset"
+  },
+  "fields": {
+    "completion_tokens": {
+      "classification": "not collected separately; local-reference branch execution made no model call",
+      "collection_failure_count": 0,
+      "field": "completion_tokens",
+      "missing_count": 36,
+      "not_produced_by_execution_mode_count": 36,
+      "observability_rate": 0.0,
+      "observed_count": 0,
+      "positive_count": 0,
+      "record_count": 36,
+      "true_zero_count": 0
+    },
+    "model_latency": {
+      "classification": "not produced: the local-reference branch runner made no model call",
+      "collection_failure_count": 0,
+      "field": "model_latency",
+      "missing_count": 36,
+      "not_produced_by_execution_mode_count": 36,
+      "observability_rate": 0.0,
+      "observed_count": 0,
+      "positive_count": 0,
+      "record_count": 36,
+      "true_zero_count": 0
+    },
+    "prompt_tokens": {
+      "classification": "not collected separately; local-reference branch execution made no model call",
+      "collection_failure_count": 0,
+      "field": "prompt_tokens",
+      "missing_count": 36,
+      "not_produced_by_execution_mode_count": 36,
+      "observability_rate": 0.0,
+      "observed_count": 0,
+      "positive_count": 0,
+      "record_count": 36,
+      "true_zero_count": 0
+    },
+    "tool_calls": {
+      "classification": "observed local tool-call count",
+      "collection_failure_count": 0,
+      "field": "extra_tool_calls",
+      "missing_count": 0,
+      "not_produced_by_execution_mode_count": 0,
+      "observability_rate": 1.0,
+      "observed_count": 36,
+      "positive_count": 36,
+      "record_count": 36,
+      "true_zero_count": 0
+    },
+    "tool_latency": {
+      "classification": "observed local tool-call duration accumulated by ExecutionMonitor",
+      "collection_failure_count": 0,
+      "field": "extra_latency_seconds",
+      "missing_count": 0,
+      "not_produced_by_execution_mode_count": 0,
+      "observability_rate": 1.0,
+      "observed_count": 36,
+      "positive_count": 36,
+      "record_count": 36,
+      "true_zero_count": 0
+    },
+    "total_wall_clock_latency": {
+      "classification": "absent from branch schema; extra_latency_seconds measures tool calls, not total wall clock",
+      "collection_failure_count": 0,
+      "field": "total_wall_clock_latency",
+      "missing_count": 36,
+      "not_produced_by_execution_mode_count": 0,
+      "observability_rate": 0.0,
+      "observed_count": 0,
+      "positive_count": 0,
+      "record_count": 36,
+      "true_zero_count": 0
+    }
+  },
+  "not_applicable_branch_count": 24,
+  "schema_version": "p1-d3-cost-observability-v1",
+  "scope": "Day 9 applicable branch outcomes only"
+}

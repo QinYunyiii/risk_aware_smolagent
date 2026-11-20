@@ -1,0 +1,726 @@
+{
+  "checks": {
+    "cost_did_not_change_selection": true,
+    "day11_oof_complete": true,
+    "day13_has_180_paired_records": true,
+    "day9_has_60_candidate_records": true,
+    "full_and_risk_plus_utility_identical": true,
+    "not_applicable_excluded_from_training_labels": true,
+    "replan_is_10_of_10_success": true,
+    "retry_is_6_of_6_success": true
+  },
+  "day11_utility_model_audit": {
+    "actions": {
+      "CONTINUE": {
+        "applicable_training_examples": 20,
+        "beta_fallback_condition": "fewer than two unique outcome labels for the action",
+        "beta_fallback_triggered": false,
+        "candidate_examples": 20,
+        "cost_models": {
+          "latency_seconds": {
+            "actual": {
+              "count": 20,
+              "maximum": 0.002463609998812899,
+              "minimum": 9.415001841261983e-06,
+              "positive_count": 20,
+              "unique_count": 20,
+              "zero_count": 0
+            },
+            "all_zero_target": false,
+            "constant_target": false,
+            "model_kind": "ridge_pipeline"
+          },
+          "tokens": {
+            "actual": {
+              "count": 20,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "positive_count": 0,
+              "unique_count": 1,
+              "zero_count": 20
+            },
+            "all_zero_target": true,
+            "constant_target": true,
+            "model_kind": "dummy_constant_0"
+          },
+          "tool_calls": {
+            "actual": {
+              "count": 20,
+              "maximum": 1.0,
+              "minimum": 1.0,
+              "positive_count": 20,
+              "unique_count": 1,
+              "zero_count": 0
+            },
+            "all_zero_target": false,
+            "constant_target": true,
+            "model_kind": "dummy_constant_1"
+          }
+        },
+        "estimator_accepts_state_features": true,
+        "failure_count": 9,
+        "final_beta_success_probability": null,
+        "not_applicable_examples": 0,
+        "oof_applicable_record_count": 20,
+        "oof_inapplicable_null_count": 0,
+        "oof_probability_maximum": 0.9831375580946944,
+        "oof_probability_minimum": 0.04890350393062484,
+        "oof_probability_unique_count": 20,
+        "oof_record_count": 20,
+        "outcome_model_kind_from_artifact": "logistic_regression_pipeline",
+        "outcome_model_kind_from_metrics": "logistic_regression",
+        "reported_cost_metrics": {
+          "actual_weighted_cost_mean": 1.0002811467013089,
+          "all_predictions_nonnegative": true,
+          "component_mae": {
+            "latency_seconds": 0.00027232038174749315,
+            "tokens": 0.0,
+            "tool_calls": 0.0
+          },
+          "predicted_weighted_cost_mean": 1.000162624634747,
+          "sample_count": 20,
+          "weighted_cost_mae": 0.0002723203817474928
+        },
+        "state_conditioning_judgement": "a fitted conditional classifier exists, but P1-D2 found shortcut leakage and the population is tiny synthetic Train data",
+        "success_count": 11,
+        "supported_state_conditional_generalization": false
+      },
+      "REPLAN": {
+        "applicable_training_examples": 10,
+        "beta_fallback_condition": "fewer than two unique outcome labels for the action",
+        "beta_fallback_triggered": true,
+        "candidate_examples": 20,
+        "cost_models": {
+          "latency_seconds": {
+            "actual": {
+              "count": 10,
+              "maximum": 0.002928575995611027,
+              "minimum": 1.2503995094448328e-05,
+              "positive_count": 10,
+              "unique_count": 10,
+              "zero_count": 0
+            },
+            "all_zero_target": false,
+            "constant_target": false,
+            "model_kind": "ridge_pipeline"
+          },
+          "tokens": {
+            "actual": {
+              "count": 10,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "positive_count": 0,
+              "unique_count": 1,
+              "zero_count": 10
+            },
+            "all_zero_target": true,
+            "constant_target": true,
+            "model_kind": "dummy_constant_0"
+          },
+          "tool_calls": {
+            "actual": {
+              "count": 10,
+              "maximum": 2.0,
+              "minimum": 1.0,
+              "positive_count": 10,
+              "unique_count": 2,
+              "zero_count": 0
+            },
+            "all_zero_target": false,
+            "constant_target": false,
+            "model_kind": "ridge_pipeline"
+          }
+        },
+        "estimator_accepts_state_features": false,
+        "failure_count": 0,
+        "final_beta_success_probability": 0.9166666666666666,
+        "not_applicable_examples": 10,
+        "oof_applicable_record_count": 10,
+        "oof_inapplicable_null_count": 10,
+        "oof_probability_maximum": 0.9,
+        "oof_probability_minimum": 0.9,
+        "oof_probability_unique_count": 1,
+        "oof_record_count": 20,
+        "outcome_model_kind_from_artifact": "beta_bernoulli_constant",
+        "outcome_model_kind_from_metrics": "beta_bernoulli_constant",
+        "reported_cost_metrics": {
+          "actual_weighted_cost_mean": 1.1003986247902504,
+          "all_predictions_nonnegative": true,
+          "component_mae": {
+            "latency_seconds": 0.0004244951852540527,
+            "tokens": 0.0,
+            "tool_calls": 0.13423922774671354
+          },
+          "predicted_weighted_cost_mean": 1.0277576170823164,
+          "sample_count": 10,
+          "weighted_cost_mae": 0.13464479338934016
+        },
+        "state_conditioning_judgement": "not learned: Beta-Bernoulli output is constant within each fitted fold",
+        "success_count": 10,
+        "supported_state_conditional_generalization": false
+      },
+      "RETRY": {
+        "applicable_training_examples": 6,
+        "beta_fallback_condition": "fewer than two unique outcome labels for the action",
+        "beta_fallback_triggered": true,
+        "candidate_examples": 20,
+        "cost_models": {
+          "latency_seconds": {
+            "actual": {
+              "count": 6,
+              "maximum": 0.002457884984323755,
+              "minimum": 2.2344989702105522e-05,
+              "positive_count": 6,
+              "unique_count": 6,
+              "zero_count": 0
+            },
+            "all_zero_target": false,
+            "constant_target": false,
+            "model_kind": "ridge_pipeline"
+          },
+          "tokens": {
+            "actual": {
+              "count": 6,
+              "maximum": 0.0,
+              "minimum": 0.0,
+              "positive_count": 0,
+              "unique_count": 1,
+              "zero_count": 6
+            },
+            "all_zero_target": true,
+            "constant_target": true,
+            "model_kind": "dummy_constant_0"
+          },
+          "tool_calls": {
+            "actual": {
+              "count": 6,
+              "maximum": 1.0,
+              "minimum": 1.0,
+              "positive_count": 6,
+              "unique_count": 1,
+              "zero_count": 0
+            },
+            "all_zero_target": false,
+            "constant_target": true,
+            "model_kind": "dummy_constant_1"
+          }
+        },
+        "estimator_accepts_state_features": false,
+        "failure_count": 0,
+        "final_beta_success_probability": 0.875,
+        "not_applicable_examples": 14,
+        "oof_applicable_record_count": 6,
+        "oof_inapplicable_null_count": 14,
+        "oof_probability_maximum": 0.8571428571428571,
+        "oof_probability_minimum": 0.8333333333333334,
+        "oof_probability_unique_count": 2,
+        "oof_record_count": 20,
+        "outcome_model_kind_from_artifact": "beta_bernoulli_constant",
+        "outcome_model_kind_from_metrics": "beta_bernoulli_constant",
+        "reported_cost_metrics": {
+          "actual_weighted_cost_mean": 1.0005497763243814,
+          "all_predictions_nonnegative": true,
+          "component_mae": {
+            "latency_seconds": 0.000710165267301836,
+            "tokens": 0.0,
+            "tool_calls": 0.0
+          },
+          "predicted_weighted_cost_mean": 1.000337857338003,
+          "sample_count": 6,
+          "weighted_cost_mae": 0.0007101652673018691
+        },
+        "state_conditioning_judgement": "not learned: Beta-Bernoulli output is constant within each fitted fold",
+        "success_count": 6,
+        "supported_state_conditional_generalization": false
+      }
+    },
+    "applicable_training_record_count": 36,
+    "dataset_record_count": 60,
+    "not_applicable_labels_and_costs_are_null": true,
+    "not_applicable_record_count": 24,
+    "oof_file_exists": true,
+    "oof_key_coverage_matches_dataset": true,
+    "oof_record_count": 60,
+    "validity_judgement": "The artifacts prove an engineering pipeline, not valid real-Qwen utility estimation: RETRY/REPLAN outcomes are single-class constants, token costs are zero because the local-reference runner made no model call, and all data are 20 synthetic Train checkpoints."
+  },
+  "day13_policy_equivalence": {
+    "ablations": {
+      "without_cost": {
+        "full_action_agreement_count": 20,
+        "implementation": "real outcome and cost models are called, then weighted cost is overridden to zero",
+        "predicted_cost_components_retained_count": 20,
+        "ranking_change_count": 0,
+        "selection_change_count": 0,
+        "weighted_cost_numeric_change_checkpoint_count": 20
+      },
+      "without_risk": {
+        "full_action_agreement_count": 20,
+        "implementation": "risk prediction overridden with constant 1.0; utility and cost predictions retained",
+        "risk_gate_changed_count": 11
+      },
+      "without_utility": {
+        "empty_action_scores_count": 20,
+        "full_action_agreement_count": 20,
+        "implementation": "RiskOnlyPolicy; outcome and cost models are not called"
+      }
+    },
+    "action_counts": {
+      "always_retry": {
+        "CONTINUE": 14,
+        "RETRY": 6
+      },
+      "full": {
+        "CONTINUE": 11,
+        "REPLAN": 9
+      },
+      "risk_based": {
+        "CONTINUE": 11,
+        "REPLAN": 9
+      },
+      "risk_plus_utility": {
+        "CONTINUE": 11,
+        "REPLAN": 9
+      },
+      "rule_based": {
+        "CONTINUE": 5,
+        "REPLAN": 10,
+        "RETRY": 5
+      },
+      "vanilla": {
+        "CONTINUE": 20
+      },
+      "without_cost": {
+        "CONTINUE": 11,
+        "REPLAN": 9
+      },
+      "without_risk": {
+        "CONTINUE": 11,
+        "REPLAN": 9
+      },
+      "without_utility": {
+        "CONTINUE": 11,
+        "REPLAN": 9
+      }
+    },
+    "all_records_train_split": true,
+    "checkpoint_count": 20,
+    "checkpoints_with_any_action_difference_from_full": [
+      {
+        "checkpoint_id": "day9_cp_001",
+        "different_policies": {
+          "always_retry": "RETRY",
+          "rule_based": "RETRY"
+        },
+        "full_action": "CONTINUE"
+      },
+      {
+        "checkpoint_id": "day9_cp_002",
+        "different_policies": {
+          "always_retry": "CONTINUE",
+          "vanilla": "CONTINUE"
+        },
+        "full_action": "REPLAN"
+      },
+      {
+        "checkpoint_id": "day9_cp_003",
+        "different_policies": {
+          "always_retry": "CONTINUE",
+          "vanilla": "CONTINUE"
+        },
+        "full_action": "REPLAN"
+      },
+      {
+        "checkpoint_id": "day9_cp_005",
+        "different_policies": {
+          "always_retry": "RETRY",
+          "rule_based": "RETRY"
+        },
+        "full_action": "CONTINUE"
+      },
+      {
+        "checkpoint_id": "day9_cp_006",
+        "different_policies": {
+          "always_retry": "CONTINUE",
+          "vanilla": "CONTINUE"
+        },
+        "full_action": "REPLAN"
+      },
+      {
+        "checkpoint_id": "day9_cp_007",
+        "different_policies": {
+          "always_retry": "CONTINUE",
+          "vanilla": "CONTINUE"
+        },
+        "full_action": "REPLAN"
+      },
+      {
+        "checkpoint_id": "day9_cp_009",
+        "different_policies": {
+          "always_retry": "RETRY",
+          "rule_based": "RETRY"
+        },
+        "full_action": "CONTINUE"
+      },
+      {
+        "checkpoint_id": "day9_cp_010",
+        "different_policies": {
+          "always_retry": "CONTINUE",
+          "vanilla": "CONTINUE"
+        },
+        "full_action": "REPLAN"
+      },
+      {
+        "checkpoint_id": "day9_cp_011",
+        "different_policies": {
+          "always_retry": "CONTINUE",
+          "vanilla": "CONTINUE"
+        },
+        "full_action": "REPLAN"
+      },
+      {
+        "checkpoint_id": "day9_cp_013",
+        "different_policies": {
+          "always_retry": "RETRY",
+          "rule_based": "RETRY"
+        },
+        "full_action": "CONTINUE"
+      },
+      {
+        "checkpoint_id": "day9_cp_014",
+        "different_policies": {
+          "always_retry": "CONTINUE",
+          "vanilla": "CONTINUE"
+        },
+        "full_action": "REPLAN"
+      },
+      {
+        "checkpoint_id": "day9_cp_015",
+        "different_policies": {
+          "always_retry": "RETRY",
+          "rule_based": "REPLAN"
+        },
+        "full_action": "CONTINUE"
+      },
+      {
+        "checkpoint_id": "day9_cp_017",
+        "different_policies": {
+          "always_retry": "RETRY",
+          "rule_based": "RETRY"
+        },
+        "full_action": "CONTINUE"
+      },
+      {
+        "checkpoint_id": "day9_cp_018",
+        "different_policies": {
+          "always_retry": "CONTINUE",
+          "vanilla": "CONTINUE"
+        },
+        "full_action": "REPLAN"
+      },
+      {
+        "checkpoint_id": "day9_cp_019",
+        "different_policies": {
+          "always_retry": "CONTINUE",
+          "vanilla": "CONTINUE"
+        },
+        "full_action": "REPLAN"
+      }
+    ],
+    "day12_full_decision_action_and_gate_match_count": 20,
+    "full_vs_risk_plus_utility": {
+      "actual_difference": "none: both are separately constructed AdaptiveInterventionPolicy instances using the same model bundle and configuration",
+      "exact_decision_payload_match_count": 20,
+      "same_selected_action_count": 20
+    },
+    "module_call_semantics_from_code": {
+      "always_retry": "no risk/outcome/cost model",
+      "full": "real risk, action-outcome, and cost models",
+      "risk_based": "real risk model only",
+      "risk_plus_utility": "real risk, action-outcome, and cost models",
+      "rule_based": "no learned model; reads last_failure.fault_type injection metadata",
+      "vanilla": "no risk/outcome/cost model",
+      "without_cost": "real risk, action-outcome, and cost models; cost influence zeroed after prediction",
+      "without_risk": "constant risk override; real action-outcome and cost models",
+      "without_utility": "real risk model only; no outcome/cost model"
+    },
+    "pairwise_action_agreement_counts_out_of_20": {
+      "always_retry": {
+        "always_retry": 20,
+        "full": 5,
+        "risk_based": 5,
+        "risk_plus_utility": 5,
+        "rule_based": 10,
+        "vanilla": 14,
+        "without_cost": 5,
+        "without_risk": 5,
+        "without_utility": 5
+      },
+      "full": {
+        "always_retry": 5,
+        "full": 20,
+        "risk_based": 20,
+        "risk_plus_utility": 20,
+        "rule_based": 14,
+        "vanilla": 11,
+        "without_cost": 20,
+        "without_risk": 20,
+        "without_utility": 20
+      },
+      "risk_based": {
+        "always_retry": 5,
+        "full": 20,
+        "risk_based": 20,
+        "risk_plus_utility": 20,
+        "rule_based": 14,
+        "vanilla": 11,
+        "without_cost": 20,
+        "without_risk": 20,
+        "without_utility": 20
+      },
+      "risk_plus_utility": {
+        "always_retry": 5,
+        "full": 20,
+        "risk_based": 20,
+        "risk_plus_utility": 20,
+        "rule_based": 14,
+        "vanilla": 11,
+        "without_cost": 20,
+        "without_risk": 20,
+        "without_utility": 20
+      },
+      "rule_based": {
+        "always_retry": 10,
+        "full": 14,
+        "risk_based": 14,
+        "risk_plus_utility": 14,
+        "rule_based": 20,
+        "vanilla": 5,
+        "without_cost": 14,
+        "without_risk": 14,
+        "without_utility": 14
+      },
+      "vanilla": {
+        "always_retry": 14,
+        "full": 11,
+        "risk_based": 11,
+        "risk_plus_utility": 11,
+        "rule_based": 5,
+        "vanilla": 20,
+        "without_cost": 11,
+        "without_risk": 11,
+        "without_utility": 11
+      },
+      "without_cost": {
+        "always_retry": 5,
+        "full": 20,
+        "risk_based": 20,
+        "risk_plus_utility": 20,
+        "rule_based": 14,
+        "vanilla": 11,
+        "without_cost": 20,
+        "without_risk": 20,
+        "without_utility": 20
+      },
+      "without_risk": {
+        "always_retry": 5,
+        "full": 20,
+        "risk_based": 20,
+        "risk_plus_utility": 20,
+        "rule_based": 14,
+        "vanilla": 11,
+        "without_cost": 20,
+        "without_risk": 20,
+        "without_utility": 20
+      },
+      "without_utility": {
+        "always_retry": 5,
+        "full": 20,
+        "risk_based": 20,
+        "risk_plus_utility": 20,
+        "rule_based": 14,
+        "vanilla": 11,
+        "without_cost": 20,
+        "without_risk": 20,
+        "without_utility": 20
+      }
+    },
+    "policy_count": 9,
+    "record_count": 180,
+    "risk_level_counts": {
+      "always_retry": {
+        "not_used": 20
+      },
+      "full": {
+        "high": 9,
+        "low": 11
+      },
+      "risk_based": {
+        "high": 9,
+        "low": 11
+      },
+      "risk_plus_utility": {
+        "high": 9,
+        "low": 11
+      },
+      "rule_based": {
+        "not_used": 20
+      },
+      "vanilla": {
+        "not_used": 20
+      },
+      "without_cost": {
+        "high": 9,
+        "low": 11
+      },
+      "without_risk": {
+        "high": 20
+      },
+      "without_utility": {
+        "high": 9,
+        "low": 11
+      }
+    },
+    "validity_judgement": "The 180 records support engineering reproducibility only. Six model-oriented policies select identical actions on all 20 checkpoints; Full and Risk + Utility are the same code path; cost and utility ablations do not change selections; all records are deterministic-local Train data using audited shortcut/constant models."
+  },
+  "day9_action_coverage": {
+    "CONTINUE": {
+      "applicable_count": 20,
+      "candidate_count": 20,
+      "cost_fields_applicable_only": {
+        "extra_latency_seconds": {
+          "count": 20,
+          "maximum": 0.002463609998812899,
+          "minimum": 9.415001841261983e-06,
+          "positive_count": 20,
+          "unique_count": 20,
+          "zero_count": 0
+        },
+        "extra_tokens": {
+          "count": 20,
+          "maximum": 0.0,
+          "minimum": 0.0,
+          "positive_count": 0,
+          "unique_count": 1,
+          "zero_count": 20
+        },
+        "extra_tool_calls": {
+          "count": 20,
+          "maximum": 1.0,
+          "minimum": 1.0,
+          "positive_count": 20,
+          "unique_count": 1,
+          "zero_count": 0
+        }
+      },
+      "failure_categories": {
+        "branch_error:APIWorkflowError | APIWorkflowError | invalid_argument | F3_INVALID_ARGUMENT": 1,
+        "branch_error:FileNotFoundError | FileNotFoundError | invalid_argument | F3_INVALID_ARGUMENT": 3,
+        "branch_error:FileNotFoundError | FileNotFoundError | stale_observation | F4_STALE_OBSERVATION": 3,
+        "branch_error:LogicToolError | LogicToolError | stale_observation | F4_STALE_OBSERVATION": 1,
+        "branch_error:UnsafeExpressionError | UnsafeExpressionError | invalid_argument | F3_INVALID_ARGUMENT": 1
+      },
+      "failure_count": 9,
+      "not_applicable_count": 0,
+      "not_applicable_reasons": {},
+      "raw_not_applicable_success_false_count": 0,
+      "success_count": 11,
+      "support_judgement": "two observed classes, but only 20 deterministic-local Train checkpoints",
+      "supports_binary_conditional_outcome_model": true
+    },
+    "REPLAN": {
+      "applicable_count": 10,
+      "candidate_count": 20,
+      "cost_fields_applicable_only": {
+        "extra_latency_seconds": {
+          "count": 10,
+          "maximum": 0.002928575995611027,
+          "minimum": 1.2503995094448328e-05,
+          "positive_count": 10,
+          "unique_count": 10,
+          "zero_count": 0
+        },
+        "extra_tokens": {
+          "count": 10,
+          "maximum": 0.0,
+          "minimum": 0.0,
+          "positive_count": 0,
+          "unique_count": 1,
+          "zero_count": 10
+        },
+        "extra_tool_calls": {
+          "count": 10,
+          "maximum": 2.0,
+          "minimum": 1.0,
+          "positive_count": 10,
+          "unique_count": 2,
+          "zero_count": 0
+        }
+      },
+      "failure_categories": {},
+      "failure_count": 0,
+      "not_applicable_count": 10,
+      "not_applicable_reasons": {
+        "No corrected plan or state-refresh operation is available": 10
+      },
+      "raw_not_applicable_success_false_count": 10,
+      "success_count": 10,
+      "support_judgement": "single observed class; no action-conditional failure contrast",
+      "supports_binary_conditional_outcome_model": false
+    },
+    "RETRY": {
+      "applicable_count": 6,
+      "candidate_count": 20,
+      "cost_fields_applicable_only": {
+        "extra_latency_seconds": {
+          "count": 6,
+          "maximum": 0.002457884984323755,
+          "minimum": 2.2344989702105522e-05,
+          "positive_count": 6,
+          "unique_count": 6,
+          "zero_count": 0
+        },
+        "extra_tokens": {
+          "count": 6,
+          "maximum": 0.0,
+          "minimum": 0.0,
+          "positive_count": 0,
+          "unique_count": 1,
+          "zero_count": 6
+        },
+        "extra_tool_calls": {
+          "count": 6,
+          "maximum": 1.0,
+          "minimum": 1.0,
+          "positive_count": 6,
+          "unique_count": 1,
+          "zero_count": 0
+        }
+      },
+      "failure_categories": {},
+      "failure_count": 0,
+      "not_applicable_count": 14,
+      "not_applicable_reasons": {
+        "No failed operation is available to retry": 5,
+        "Refresh state before acting on a stale observation": 4,
+        "Retrying unchanged invalid arguments cannot make progress": 5
+      },
+      "raw_not_applicable_success_false_count": 14,
+      "success_count": 6,
+      "support_judgement": "single observed class; no action-conditional failure contrast",
+      "supports_binary_conditional_outcome_model": false
+    }
+  },
+  "gate_interpretation": "PASS means the P1-D3 audit is reproducible and its limitations are explicit; it does not validate the utility models or policy research hypothesis.",
+  "gate_passed": true,
+  "schema_version": "p1-d3-action-utility-policy-audit-v1",
+  "scope": "immutable Day 9--13 Train artifacts",
+  "source_sha256": {
+    "runs/day09/day9_20261119_080843_288841fc/branch_outcomes.jsonl": "f50bf5c6a121c215c4123252b7d168fd1506979bf1603792c620ca535ff2d4d9",
+    "runs/day11/day11_20261119_082900_e8d013ce/cost_metrics.json": "440bfacc141b77a6b65334cfe097ed4acf41a9aec76ba5d1603cf37f8d8283cf",
+    "runs/day11/day11_20261119_082900_e8d013ce/oof_utility_predictions.jsonl": "b5469e2b253e1f7a5478d660cd1ad12de6b933239356d711679f07eafc12aa07",
+    "runs/day11/day11_20261119_082900_e8d013ce/outcome_metrics.json": "253b9c7c3bd491825aad32e3c26770554ab7d8dd8968f538f9e1d755ee6d03cb",
+    "runs/day11/day11_20261119_082900_e8d013ce/utility_training_dataset.json": "9b9b86450d346d2c6f521fef9a39b6681cec626e103722c61567019294dcf2c0",
+    "runs/day12/day12_20261119_083943_b18d954e/policy_decisions.jsonl": "54a52a0e341cd0942ca1aa3bfc4eaf2ef9864148fab48a668fc6e690bf185eab",
+    "runs/day13/day13_20261119_085002_5754c690/policy_task_results.jsonl": "37cfe796313a9e5e779751b2f4138a80b31b480b339c84a28eb2a31ef1537c97"
+  }
+}
