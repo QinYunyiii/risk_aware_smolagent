@@ -14,11 +14,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
+from risk_agent.agent import AgentStateSnapshot
 from risk_agent.benchmark.environment import TaskEnvironment, WorkspaceSafetyError
 from risk_agent.benchmark.schema import TaskSpec, validate_identifier
 from risk_agent.monitoring.runtime_state import RuntimeState
 
-from .schema import CheckpointManifest
+from .metadata import (
+    CaptureInvariants,
+    CheckpointIdentityV2,
+    EnvironmentCheckpointMetadata,
+    RuntimeCheckpointMetadata,
+)
+from .schema import CheckpointManifest, parse_checkpoint_manifest
+from .v2_manager import RestoreV2Result, SnapshotV2Result, VerifyV2Result
 
 
 class CheckpointError(RuntimeError):
@@ -245,7 +253,15 @@ class CheckpointManager:
         manifest_path = root / "manifest.json"
         if not manifest_path.is_file():
             raise CheckpointIntegrityError("Checkpoint manifest is missing")
-        manifest = CheckpointManifest.from_dict(json.loads(manifest_path.read_text(encoding="utf-8")))
+        try:
+            parsed_manifest = parse_checkpoint_manifest(
+                json.loads(manifest_path.read_text(encoding="utf-8"))
+            )
+        except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+            raise CheckpointIntegrityError("Checkpoint manifest is invalid") from exc
+        if not isinstance(parsed_manifest, CheckpointManifest):
+            raise CheckpointIntegrityError("Complete v2 checkpoint requires restore_v2()")
+        manifest = parsed_manifest
         if manifest.checkpoint_id != checkpoint_id or manifest.task_id != task.task_id:
             raise CheckpointIntegrityError("Checkpoint identity does not match restore target")
         actual_checksums = self._artifact_checksums(root)
@@ -349,3 +365,55 @@ class CheckpointManager:
             if staging.exists():
                 shutil.rmtree(staging)
             raise
+
+    def snapshot_v2(
+        self,
+        *,
+        checkpoint_id: str,
+        environment: TaskEnvironment,
+        runtime_state: RuntimeState,
+        agent_state_snapshot: AgentStateSnapshot,
+        identity: CheckpointIdentityV2,
+        runtime_metadata: RuntimeCheckpointMetadata,
+        environment_metadata: EnvironmentCheckpointMetadata,
+        capture_invariants: CaptureInvariants,
+    ) -> SnapshotV2Result:
+        """Atomically capture a complete Agent + Environment + Runtime checkpoint."""
+
+        from .v2_manager import snapshot_v2
+
+        return snapshot_v2(
+            self,
+            checkpoint_id=checkpoint_id,
+            environment=environment,
+            runtime_state=runtime_state,
+            agent_state_snapshot=agent_state_snapshot,
+            identity=identity,
+            runtime_metadata=runtime_metadata,
+            environment_metadata=environment_metadata,
+            capture_invariants=capture_invariants,
+        )
+
+    def verify_v2(
+        self,
+        *,
+        checkpoint_id: str,
+        environment: TaskEnvironment,
+    ) -> VerifyV2Result:
+        """Verify every v2 artifact and component hash without mutating the environment."""
+
+        from .v2_manager import verify_v2
+
+        return verify_v2(self, checkpoint_id=checkpoint_id, environment=environment)
+
+    def restore_v2(
+        self,
+        *,
+        checkpoint_id: str,
+        environment: TaskEnvironment,
+    ) -> RestoreV2Result:
+        """Verify completely, then restore into an isolated staging workspace."""
+
+        from .v2_manager import restore_v2
+
+        return restore_v2(self, checkpoint_id=checkpoint_id, environment=environment)
