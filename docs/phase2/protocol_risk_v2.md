@@ -1,7 +1,7 @@
 # Risk Data Protocol v2
 
-> Protocol ID: `risk-continue-v2.0.0-rc1`
-> B1 status: review candidate; it becomes frozen only after user approval.
+> Protocol ID: `risk-continue-v2.0.0`
+> B1 status: frozen on 2026-11-20 (Asia/Shanghai); implementation evidence remains subject to B2/B3 Gates.
 > Scope: real Qwen3-8B `CONTINUE` risk data. RETRY/REPLAN outcome learning is out of scope.
 > Evidence cutoff: repository state audited on 2026-11-20 (Asia/Shanghai).
 
@@ -238,7 +238,8 @@ intervals. The Gate is not a power calculation.
 
 ## 11. B1 decision status
 
-This document freezes a review candidate, not an implemented capability. User approval is the
-final B1 control point. B2 may begin only after approval and must not start formal collection.
-The joint Gate and implementation evidence requirements are in
-`b2_b4_acceptance_protocol.md` and `b1_protocol_report.md`.
+Protocol `risk-continue-v2.0.0` is formally frozen by
+`protocol_freeze_record_v2.md`. This is a frozen research/data contract, not an implemented
+capability. B2 may implement and test the contract but must not start formal collection. The
+joint Gate and implementation evidence requirements are in `b2_b4_acceptance_protocol.md`;
+the historical rc1 review result remains in `b1_protocol_report.md`.

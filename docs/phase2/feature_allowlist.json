@@ -1,7 +1,7 @@
 {
-  "schema_version": "2.0.0-rc1",
-  "protocol_id": "risk-continue-v2.0.0-rc1",
-  "status": "review_candidate",
+  "schema_version": "2.0.0",
+  "protocol_id": "risk-continue-v2.0.0",
+  "status": "frozen_disabled_pending_provenance",
   "current_activation_state": "no_v2_feature_is_deployment_enabled_until_b2_provenance_passes",
   "activation_rule": "A candidate may change allowed_for_deployment to true only after its named raw source, cutoff, canonical implementation, and B2/B3 provenance test pass without internal or future data.",
   "features": [

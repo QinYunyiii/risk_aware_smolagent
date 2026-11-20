@@ -1,6 +1,6 @@
 # Risk Data Schema v2
 
-> Schema family: `risk-data-v2.0.0-rc1`
+> Schema family: `risk-data-v2.0.0`
 > Raw storage: append-only JSONL; derived records never overwrite source records.
 
 ## 1. Common rules
@@ -70,7 +70,7 @@ Required fields:
   Observations, Agent runtime, Environment manifest and Runtime state;
 - `agent_state_hash`, `next_model_input_hash`, `environment_state_hash`,
   `runtime_state_hash`, `identity_config_hash`, `combined_state_hash`;
-- artifact manifest checksum and `checkpoint_schema_version=2.0.0-rc1`;
+- artifact manifest checksum and `checkpoint_schema_version=2.0.0`;
 - `internal_fault_metadata_ref` in a separate audit namespace;
 - `observable_features_ref` generated before CONTINUE starts.
 

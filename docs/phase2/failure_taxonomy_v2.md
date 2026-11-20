@@ -1,7 +1,7 @@
 # Failure Taxonomy and F0--F6 Protocol v2
 
-> Taxonomy ID: `failure-taxonomy-v2.0.0-rc1`
-> Status: B1 review candidate; implementation evidence is pending B2/B3.
+> Taxonomy ID: `failure-taxonomy-v2.0.0`
+> Status: frozen research contract; implementation evidence is pending B2/B3.
 
 ## 1. Outcome categories
 

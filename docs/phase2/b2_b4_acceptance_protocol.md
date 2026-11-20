@@ -1,6 +1,6 @@
 # B2--B4 Acceptance Protocol
 
-> Protocol ID: `risk-continue-v2.0.0-rc1`
+> Protocol ID: `risk-continue-v2.0.0`
 > This document defines future Gates. It is not evidence that any Gate has passed.
 
 ## 1. Common preconditions

@@ -1,6 +1,6 @@
 version: 2
-protocol_id: risk-continue-v2.0.0-rc1
-protocol_status: review_candidate
+protocol_id: risk-continue-v2.0.0
+protocol_status: frozen
 formal_experiment: true
 controller_type: qwen3_model
 execution_mode: model_backed_formal
