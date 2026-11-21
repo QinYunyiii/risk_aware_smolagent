@@ -323,8 +323,8 @@ def _extract_agent_payload(agent_snapshot: AgentStateSnapshot) -> dict[str, Any]
     latest = actions[-1]
     if latest.get("is_final_answer") is True:
         raise ValueError("Complete v2 checkpoint must be non-terminal")
-    if latest.get("observations") is None:
-        raise ValueError("Latest ActionStep is missing a Tool Observation")
+    if latest.get("observations") is None and latest.get("error") is None:
+        raise ValueError("Latest ActionStep is missing a Tool Observation or Agent-visible error")
     if not latest.get("tool_calls"):
         raise ValueError("Latest ActionStep is missing Tool Calls")
     step_number = agent.get("step_number")
@@ -346,7 +346,10 @@ def _extract_agent_payload(agent_snapshot: AgentStateSnapshot) -> dict[str, Any]
     model_id = payload.get("model", {}).get("model_id")
     if not isinstance(model_id, str) or not model_id:
         raise ValueError("Agent model_id is missing")
-    if str(agent.get("class", "")).rsplit(".", 1)[-1] != "ToolCallingAgent":
+    if str(agent.get("class", "")).rsplit(".", 1)[-1] not in {
+        "ToolCallingAgent",
+        "CheckpointableToolCallingAgent",
+    }:
         raise ValueError("Frozen Checkpoint v2 requires ToolCallingAgent state")
     latest_assistant_calls = (latest.get("model_output_message") or {}).get("tool_calls")
     if not latest_assistant_calls:
@@ -377,6 +380,16 @@ def _extract_agent_payload(agent_snapshot: AgentStateSnapshot) -> dict[str, Any]
         for item in actions
         if item.get("observations") is not None
     ]
+    observations.extend(
+        {
+            "step_number": item["step_number"],
+            "call_ids": sorted(call["id"] for call in item.get("tool_calls") or []),
+            "observation": None,
+            "error": item["error"],
+        }
+        for item in actions
+        if item.get("observations") is None and item.get("error") is not None
+    )
     return {
         "agent": agent,
         "memory": memory,

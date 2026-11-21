@@ -1,0 +1,6 @@
+{"event":"model_request_succeeded","model_calls_used":1,"step_number":1}
+{"event":"tool_batch_completed","tool_call_id":"call-day3-001","tool_calls_used":1}
+{"event":"action_step_appended_and_yielded","observation":"counter=1","step_number":1}
+{"event":"checkpoint_captured","next_step_number":2,"status":"checkpoint_captured"}
+{"event":"source_generator_closed","extra_model_calls":0,"extra_tool_calls":0}
+{"event":"restored_first_request_succeeded","model_calls_used":2,"step_number":2}
