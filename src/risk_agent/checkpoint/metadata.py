@@ -132,15 +132,21 @@ class RuntimeCheckpointMetadata:
     next_operation: str
 
     def __post_init__(self) -> None:
+        if isinstance(self.max_model_calls, bool) or not isinstance(self.max_model_calls, int):
+            raise ValueError("max_model_calls must be an integer")
+        if isinstance(self.model_calls_used, bool) or not isinstance(self.model_calls_used, int):
+            raise ValueError("model_calls_used must be an integer")
         if self.max_model_calls <= 0:
             raise ValueError("max_model_calls must be positive")
         if self.model_calls_used <= 0:
             raise ValueError("model_calls_used must be positive")
-        if self.model_calls_used > self.max_model_calls:
-            raise ValueError("model_calls_used exceeds max_model_calls")
+        if self.model_calls_used >= self.max_model_calls:
+            raise ValueError("No model call budget remains for next model_generation")
         for field in ("prompt_tokens_used", "completion_tokens_used"):
             value = getattr(self, field)
-            if value is not None and value < 0:
+            if value is not None and (
+                isinstance(value, bool) or not isinstance(value, int) or value < 0
+            ):
                 raise ValueError(f"{field} must be non-negative or null")
         if not isinstance(_json_copy(self.resource_usage), dict):
             raise ValueError("resource_usage must be an object")

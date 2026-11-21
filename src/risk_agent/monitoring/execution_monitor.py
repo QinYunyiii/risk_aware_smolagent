@@ -23,10 +23,12 @@ _SENSITIVE_KEYS = {
 
 def redact_sensitive(value: Any) -> Any:
     if isinstance(value, dict):
+        if any(not isinstance(key, str) for key in value):
+            raise TypeError("Monitored JSON objects require string keys")
         return {
-            str(key): (
+            key: (
                 "[REDACTED]"
-                if str(key).casefold() in _SENSITIVE_KEYS
+                if key.casefold() in _SENSITIVE_KEYS
                 else redact_sensitive(item)
             )
             for key, item in value.items()

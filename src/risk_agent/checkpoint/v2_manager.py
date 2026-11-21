@@ -473,6 +473,51 @@ def _runtime_hash_document(
     }
 
 
+def _continue_budget_error(
+    *,
+    runtime_state: RuntimeState,
+    max_model_calls: int,
+    model_calls_used: int,
+    prompt_tokens_used: int | None,
+    completion_tokens_used: int | None,
+    agent_state: Mapping[str, Any],
+    next_step_number: int,
+) -> str | None:
+    """Return a semantic inconsistency that would prevent the declared next generation."""
+
+    if model_calls_used >= max_model_calls:
+        return "No model call budget remains for next model_generation"
+    budget = runtime_state.budget
+    if budget.tokens_used >= budget.max_tokens:
+        return "No cumulative Token budget remains for next model_generation"
+    if budget.latency_seconds_used >= budget.max_latency_seconds:
+        return "No latency budget remains for next model_generation"
+    if budget.tool_calls_used > budget.max_tool_calls:
+        return "Tool Call usage exceeds the configured limit"
+    if (
+        prompt_tokens_used is not None
+        and completion_tokens_used is not None
+        and prompt_tokens_used + completion_tokens_used != budget.tokens_used
+    ):
+        return "Observed Prompt/Completion Tokens do not match cumulative Token usage"
+    step_number = agent_state.get("step_number")
+    max_steps = agent_state.get("max_steps")
+    remaining_steps = agent_state.get("remaining_steps")
+    if not all(
+        isinstance(value, int) and not isinstance(value, bool)
+        for value in (step_number, max_steps, remaining_steps, next_step_number)
+    ):
+        return "Agent step budget contains invalid counters"
+    if (
+        remaining_steps <= 0
+        or remaining_steps != max_steps - step_number
+        or next_step_number != step_number + 1
+        or next_step_number > max_steps
+    ):
+        return "No Agent step budget remains for next model_generation"
+    return None
+
+
 def snapshot_v2(
     manager: CheckpointManager,
     *,
@@ -499,19 +544,22 @@ def snapshot_v2(
         or runtime_metadata.max_model_calls != 10
     ):
         raise _mismatch("Runtime limits do not match frozen Protocol v2 budgets")
-    if (
-        runtime_metadata.prompt_tokens_used is not None
-        and runtime_metadata.completion_tokens_used is not None
-        and runtime_metadata.prompt_tokens_used + runtime_metadata.completion_tokens_used
-        != runtime_state.budget.tokens_used
-    ):
-        raise _mismatch("Observed prompt/completion Tokens do not match aggregate runtime Tokens")
-
     extracted = _extract_agent_payload(agent_state_snapshot)
     agent = extracted["agent"]
     if agent["task"] != environment.task.prompt:
         raise _mismatch("Agent task prompt does not match TaskSpec prompt")
     next_step_number = int(agent["step_number"]) + 1
+    budget_error = _continue_budget_error(
+        runtime_state=runtime_state,
+        max_model_calls=runtime_metadata.max_model_calls,
+        model_calls_used=runtime_metadata.model_calls_used,
+        prompt_tokens_used=runtime_metadata.prompt_tokens_used,
+        completion_tokens_used=runtime_metadata.completion_tokens_used,
+        agent_state=agent,
+        next_step_number=next_step_number,
+    )
+    if budget_error is not None:
+        raise _mismatch(budget_error)
     pending_operation = {"kind": "model_generation", "next_step_number": next_step_number}
     staging = Path(tempfile.mkdtemp(prefix=f".{checkpoint_id}-v2-", dir=manager.checkpoint_root))
     try:
@@ -566,7 +614,6 @@ def snapshot_v2(
             "database": "environment/database_state.json",
             "side_effects": "environment/side_effects.json",
             "pending": "environment/pending_operation.json",
-            "latest": "environment/latest_completed_operation.json",
         }
         _write_json(staging / environment_paths["workspace"], workspace_manifest)
         _write_json(staging / environment_paths["logical"], sqlite_dump)
@@ -575,7 +622,10 @@ def snapshot_v2(
         _write_json(staging / environment_paths["database"], sqlite_dump)
         _write_json(staging / environment_paths["side_effects"], side_effects)
         _write_json(staging / environment_paths["pending"], pending_operation)
-        _write_json(staging / environment_paths["latest"], latest_operation)
+        latest_operation_ref: str | None = None
+        if latest_operation is not None:
+            latest_operation_ref = "environment/latest_completed_operation.json"
+            _write_json(staging / latest_operation_ref, latest_operation)
 
         runtime_document = runtime_state.to_dict()
         tool_history = runtime_document["tool_history"]
@@ -710,8 +760,9 @@ def snapshot_v2(
             "database_state_ref": environment_paths["database"],
             "side_effects_ref": environment_paths["side_effects"],
             "pending_operation": pending_operation,
-            "latest_completed_operation_ref": environment_paths["latest"],
         }
+        if latest_operation_ref is not None:
+            environment_state["latest_completed_operation_ref"] = latest_operation_ref
         manifest_runtime = {
             "runtime_ref": runtime_paths["runtime"],
             "tool_history_ref": runtime_paths["history"],
@@ -895,7 +946,8 @@ def _verify_v2_payload(
     pending = artifact("environment/pending_operation.json")
     if pending != environment_state["pending_operation"]:
         raise _integrity("Pending operation artifact differs from Manifest")
-    latest = artifact(environment_state["latest_completed_operation_ref"])
+    latest_ref = environment_state.get("latest_completed_operation_ref")
+    latest = artifact(latest_ref) if latest_ref is not None else None
     stored_files_root = root / "environment" / "files"
     if _workspace_manifest(stored_files_root) != workspace_manifest:
         raise _integrity("Workspace payload differs from workspace manifest")
@@ -931,10 +983,22 @@ def _verify_v2_payload(
     if (
         budget["max_tokens"] != runtime_state.budget.max_tokens
         or budget["max_tool_calls"] != runtime_state.budget.max_tool_calls
+        or budget["max_latency_seconds"] != runtime_state.budget.max_latency_seconds
         or budget["tool_calls_used"] != runtime_state.budget.tool_calls_used
         or budget["latency_seconds_used"] != runtime_state.budget.latency_seconds_used
     ):
         raise _integrity("v2 budget state differs from RuntimeState")
+    budget_error = _continue_budget_error(
+        runtime_state=runtime_state,
+        max_model_calls=budget["max_model_calls"],
+        model_calls_used=budget["model_calls_used"],
+        prompt_tokens_used=budget["prompt_tokens_used"],
+        completion_tokens_used=budget["completion_tokens_used"],
+        agent_state=agent,
+        next_step_number=agent_context["next_step_number"],
+    )
+    if budget_error is not None:
+        raise _integrity(budget_error)
     runtime_hash_document = _runtime_hash_document(
         runtime_state=runtime_document,
         tool_history=tool_history,

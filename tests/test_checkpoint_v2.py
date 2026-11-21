@@ -30,6 +30,7 @@ from risk_agent.checkpoint import (
     CheckpointManifest,
     CheckpointManifestV2,
     CheckpointSchemaError,
+    CheckpointStateMismatchError,
     EnvironmentCheckpointMetadata,
     RuntimeCheckpointMetadata,
     parse_checkpoint_manifest,
@@ -84,11 +85,16 @@ def synthetic_train_task() -> TaskSpec:
     )
 
 
-def make_agent_snapshot(*, observation: str | None = "order shipped"):
+def make_agent_snapshot(
+    *,
+    observation: str | None = "order shipped",
+    step_number: int = 1,
+    max_steps: int = 10,
+):
     agent = ToolCallingAgent(
         tools=[CalculatorTool()],
         model=StubModel(),
-        max_steps=10,
+        max_steps=max_steps,
         verbosity_level=0,
         name="v2_checkpoint_agent",
         description="Synthetic local Day 2 fixture",
@@ -103,12 +109,12 @@ def make_agent_snapshot(*, observation: str | None = "order shipped"):
         ),
     )
     agent.task = task
-    agent.step_number = 1
+    agent.step_number = step_number
     agent.state = {"cursor": 0, "optional": None}
     agent.memory.steps = [
         TaskStep(task=task),
         ActionStep(
-            step_number=1,
+            step_number=step_number,
             timing=Timing(start_time=0.0, end_time=0.25),
             model_input_messages=[ChatMessage(role=MessageRole.USER, content=task)],
             tool_calls=[
@@ -134,7 +140,13 @@ def make_agent_snapshot(*, observation: str | None = "order shipped"):
     return AgentStateAdapter.capture(agent)
 
 
-def make_runtime(task: TaskSpec) -> RuntimeState:
+def make_runtime(
+    task: TaskSpec,
+    *,
+    tokens_used: int = 9,
+    tool_calls_used: int = 1,
+    latency_seconds_used: float = 0.25,
+) -> RuntimeState:
     history = ToolHistoryEntry(
         step_id="step_001",
         tool_name="calculator",
@@ -157,9 +169,9 @@ def make_runtime(task: TaskSpec) -> RuntimeState:
             max_tokens=50_000,
             max_tool_calls=12,
             max_latency_seconds=900.0,
-            tokens_used=9,
-            tool_calls_used=1,
-            latency_seconds_used=0.25,
+            tokens_used=tokens_used,
+            tool_calls_used=tool_calls_used,
+            latency_seconds_used=latency_seconds_used,
         ),
     )
 
@@ -183,10 +195,14 @@ def identity() -> CheckpointIdentityV2:
     )
 
 
-def runtime_metadata(*, missing_tokens: bool = False) -> RuntimeCheckpointMetadata:
+def runtime_metadata(
+    *,
+    missing_tokens: bool = False,
+    model_calls_used: int = 1,
+) -> RuntimeCheckpointMetadata:
     return RuntimeCheckpointMetadata(
         max_model_calls=10,
-        model_calls_used=1,
+        model_calls_used=model_calls_used,
         prompt_tokens_used=None if missing_tokens else 0,
         completion_tokens_used=None if missing_tokens else 9,
         resource_usage={"wall_seconds": 0.25, "gpu_used": False},
@@ -203,7 +219,7 @@ def runtime_metadata(*, missing_tokens: bool = False) -> RuntimeCheckpointMetada
     )
 
 
-def environment_metadata() -> EnvironmentCheckpointMetadata:
+def environment_metadata(*, include_latest_operation: bool = True) -> EnvironmentCheckpointMetadata:
     return EnvironmentCheckpointMetadata(
         completed_side_effects=[
             {
@@ -212,7 +228,11 @@ def environment_metadata() -> EnvironmentCheckpointMetadata:
                 "commit_state": "committed",
             }
         ],
-        latest_completed_operation={"kind": "tool_call", "call_id": "call-v2-001"},
+        latest_completed_operation=(
+            {"kind": "tool_call", "call_id": "call-v2-001"}
+            if include_latest_operation
+            else None
+        ),
     )
 
 
@@ -252,7 +272,12 @@ def prepared_environment(tmp_path: Path) -> TaskEnvironment:
     return environment
 
 
-def create_checkpoint(tmp_path: Path, *, missing_tokens: bool = False):
+def create_checkpoint(
+    tmp_path: Path,
+    *,
+    missing_tokens: bool = False,
+    include_latest_operation: bool = True,
+):
     environment = prepared_environment(tmp_path)
     manager = CheckpointManager(tmp_path / "checkpoints")
     snapshot = manager.snapshot_v2(
@@ -262,7 +287,9 @@ def create_checkpoint(tmp_path: Path, *, missing_tokens: bool = False):
         agent_state_snapshot=make_agent_snapshot(),
         identity=identity(),
         runtime_metadata=runtime_metadata(missing_tokens=missing_tokens),
-        environment_metadata=environment_metadata(),
+        environment_metadata=environment_metadata(
+            include_latest_operation=include_latest_operation
+        ),
         capture_invariants=invariants(),
     )
     return manager, environment, snapshot
@@ -405,6 +432,170 @@ def test_runtime_missing_token_fields_remain_null_and_adapter_states_are_distinc
     fault_state = json.loads((root / "runtime/fault_adapter_state.json").read_text())
     assert tool_state == {"status": "stateful", "state": {"next_call_index": 2}, "reason": None}
     assert fault_state == {"status": "empty", "state": {}, "reason": None}
+
+
+@pytest.mark.parametrize(
+    ("case", "tokens_used", "tool_calls_used", "latency_used", "model_calls", "step", "allowed"),
+    [
+        ("model_remaining", 9, 1, 0.25, 9, 1, True),
+        ("model_exhausted", 9, 1, 0.25, 10, 1, False),
+        ("token_remaining", 49_999, 1, 0.25, 1, 1, True),
+        ("token_exhausted", 50_000, 1, 0.25, 1, 1, False),
+        ("latency_remaining", 9, 1, 899.9, 1, 1, True),
+        ("latency_exhausted", 9, 1, 900.0, 1, 1, False),
+        ("step_exhausted", 9, 1, 0.25, 1, 10, False),
+        ("tool_exhausted_model_allowed", 9, 12, 0.25, 1, 1, True),
+    ],
+)
+def test_snapshot_v2_requires_budget_for_declared_next_model_generation(
+    tmp_path: Path,
+    case: str,
+    tokens_used: int,
+    tool_calls_used: int,
+    latency_used: float,
+    model_calls: int,
+    step: int,
+    allowed: bool,
+) -> None:
+    environment = prepared_environment(tmp_path)
+    manager = CheckpointManager(tmp_path / "checkpoints")
+    before = environment.state_hash()
+
+    def capture():
+        return manager.snapshot_v2(
+            checkpoint_id=f"checkpoint_{case}",
+            environment=environment,
+            runtime_state=make_runtime(
+                environment.task,
+                tokens_used=tokens_used,
+                tool_calls_used=tool_calls_used,
+                latency_seconds_used=latency_used,
+            ),
+            agent_state_snapshot=make_agent_snapshot(step_number=step),
+            identity=identity(),
+            runtime_metadata=runtime_metadata(
+                missing_tokens=tokens_used != 9,
+                model_calls_used=model_calls,
+            ),
+            environment_metadata=environment_metadata(),
+            capture_invariants=invariants(),
+        )
+
+    if allowed:
+        result = capture()
+        assert result.checkpoint_path.is_dir()
+    else:
+        with pytest.raises((ValueError, CheckpointStateMismatchError)):
+            capture()
+        assert not (manager.checkpoint_root / f"checkpoint_{case}").exists()
+    assert environment.state_hash() == before
+
+
+@pytest.mark.parametrize("exhausted_budget", ["model", "tokens", "latency"])
+def test_verify_and_restore_reject_internally_consistent_exhausted_budget_before_mutation(
+    tmp_path: Path,
+    exhausted_budget: str,
+) -> None:
+    manager, environment, snapshot = create_checkpoint(tmp_path)
+    root = snapshot.checkpoint_path
+    manifest_path = root / "manifest.json"
+    raw = json.loads(manifest_path.read_text())
+    runtime_path = root / "runtime/runtime_state.json"
+    budget_path = root / "runtime/budget_state.json"
+    runtime_document = json.loads(runtime_path.read_text())
+    budget = json.loads(budget_path.read_text())
+    if exhausted_budget == "model":
+        budget["model_calls_used"] = budget["max_model_calls"]
+    elif exhausted_budget == "tokens":
+        runtime_document["budget"]["tokens_used"] = runtime_document["budget"]["max_tokens"]
+    else:
+        exhausted = runtime_document["budget"]["max_latency_seconds"]
+        runtime_document["budget"]["latency_seconds_used"] = exhausted
+        budget["latency_seconds_used"] = exhausted
+
+    runtime_path.write_text(json.dumps(runtime_document, indent=2, sort_keys=True) + "\n")
+    budget_path.write_text(json.dumps(budget, indent=2, sort_keys=True) + "\n")
+    raw["runtime_state"]["budget_state"] = budget
+
+    def artifact_value(relative: str):
+        return json.loads((root / relative).read_text())
+
+    runtime_hash_document = {
+        "runtime_state": runtime_document,
+        "tool_history": artifact_value("runtime/tool_history.json"),
+        "tool_adapter_state": artifact_value("runtime/tool_adapter_state.json"),
+        "fault_adapter_state": artifact_value("runtime/fault_adapter_state.json"),
+        "budget_state": budget,
+        "resource_usage": artifact_value("runtime/resource_usage.json"),
+        "execution_position": artifact_value("runtime/execution_position.json"),
+    }
+    raw["hashes"]["runtime_state_hash"] = canonical_hash(runtime_hash_document)
+    raw["hashes"]["combined_state_hash"] = canonical_hash(
+        {
+            "schema_version": "2.0.0",
+            "agent_state_hash": raw["hashes"]["agent_state_hash"],
+            "next_model_input_hash": raw["hashes"]["next_model_input_hash"],
+            "environment_state_hash": raw["hashes"]["environment_state_hash"],
+            "runtime_state_hash": raw["hashes"]["runtime_state_hash"],
+            "identity_config_hash": raw["hashes"]["identity_config_hash"],
+        }
+    )
+    for record in raw["artifacts"]:
+        path = root / record["path"]
+        record["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+        record["size_bytes"] = path.stat().st_size
+    manifest_path.write_text(json.dumps(raw, indent=2, sort_keys=True) + "\n")
+
+    protected = environment.resolve_path("notes/progress.txt")
+    protected.write_text("must-survive\n", encoding="utf-8")
+    with pytest.raises(CheckpointIntegrityError, match="budget|Token|latency"):
+        manager.restore_v2(checkpoint_id="checkpoint_v2_001", environment=environment)
+    assert protected.read_text() == "must-survive\n"
+
+
+def test_prompt_token_missingness_and_real_zero_remain_distinct(tmp_path: Path) -> None:
+    _, _, observed = create_checkpoint(tmp_path / "observed")
+    _, _, missing = create_checkpoint(tmp_path / "missing", missing_tokens=True)
+    observed_budget = observed.manifest.runtime_state["budget_state"]
+    missing_budget = missing.manifest.runtime_state["budget_state"]
+    assert observed_budget["prompt_tokens_used"] == 0
+    assert missing_budget["prompt_tokens_used"] is None
+    assert observed_budget["prompt_tokens_used"] is not missing_budget["prompt_tokens_used"]
+
+
+def test_optional_latest_completed_operation_is_omitted_and_restores(tmp_path: Path) -> None:
+    manager, environment, snapshot = create_checkpoint(
+        tmp_path,
+        include_latest_operation=False,
+    )
+    assert "latest_completed_operation_ref" not in snapshot.manifest.environment_state
+    assert not (snapshot.checkpoint_path / "environment/latest_completed_operation.json").exists()
+    verified = manager.verify_v2(checkpoint_id="checkpoint_v2_001", environment=environment)
+    assert verified.manifest.hashes["environment_state_hash"] == (
+        snapshot.manifest.hashes["environment_state_hash"]
+    )
+    environment.resolve_path("notes/progress.txt").write_text("mutated\n", encoding="utf-8")
+    restored = manager.restore_v2(checkpoint_id="checkpoint_v2_001", environment=environment)
+    assert environment.resolve_path("notes/progress.txt").read_text() == "captured\n"
+    assert restored.restored_environment_hash == snapshot.manifest.hashes["environment_state_hash"]
+
+
+@pytest.mark.parametrize("mutation", ["missing", "tampered"])
+def test_present_latest_completed_operation_still_requires_intact_artifact(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    manager, environment, snapshot = create_checkpoint(tmp_path)
+    latest = snapshot.checkpoint_path / "environment/latest_completed_operation.json"
+    protected = environment.resolve_path("notes/progress.txt")
+    protected.write_text("must-survive\n", encoding="utf-8")
+    if mutation == "missing":
+        latest.unlink()
+    else:
+        latest.write_text('{"kind":"tampered"}\n', encoding="utf-8")
+    with pytest.raises(CheckpointIntegrityError):
+        manager.restore_v2(checkpoint_id="checkpoint_v2_001", environment=environment)
+    assert protected.read_text() == "must-survive\n"
 
 
 def test_all_four_adapter_state_availability_modes_are_distinct() -> None:
