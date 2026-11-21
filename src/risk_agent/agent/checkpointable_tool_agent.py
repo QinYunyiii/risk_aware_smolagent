@@ -11,14 +11,17 @@ from smolagents.agents import (
     ActionOutput,
     AgentError,
     AgentGenerationError,
+    AgentToolExecutionError,
     handle_agent_output_types,
 )
 from smolagents.memory import ActionStep, FinalAnswerStep, PlanningStep, ToolCall
 from smolagents.models import ChatMessageStreamDelta
 from smolagents.monitoring import Timing
 
+from risk_agent.monitoring import agent_tool_call_precounted
+
 from .agent_state_adapter import AgentStateAdapter, AgentStateSnapshot
-from .recording_model import RecordingModel
+from .recording_model import ModelRequestRejected, RecordingModel
 
 
 SUPPORTED_SMOLAGENTS_VERSION = "1.26.0"
@@ -63,17 +66,45 @@ class CheckpointableToolCallingAgent(ToolCallingAgent):
         public ToolCall yield keeps that lineage without changing execution semantics.
         """
 
-        announced: list[ToolCall] = []
+        announced = [
+            ToolCall(
+                name=call.function.name,
+                arguments=call.function.arguments,
+                id=call.id,
+            )
+            for call in (chat_message.tool_calls or [])
+        ]
+        memory_step.tool_calls = sorted(announced, key=lambda call: call.id)
+        if isinstance(self.model, RecordingModel):
+            task_tool_count = sum(
+                call.name != "final_answer" for call in announced
+            )
+            try:
+                self.model.require_tool_response_allowed()
+                self.model.preflight_tool_call_batch(task_tool_count)
+            except ModelRequestRejected as exc:
+                raise AgentToolExecutionError(str(exc), self.logger) from exc
+
+        yielded: list[ToolCall] = []
         generator = super().process_tool_calls(chat_message, memory_step)
         try:
             for output in generator:
                 if isinstance(output, ToolCall):
-                    announced.append(output)
-                    memory_step.tool_calls = sorted(announced, key=lambda call: call.id)
+                    yielded.append(output)
+                    memory_step.tool_calls = sorted(yielded, key=lambda call: call.id)
                 yield output
         finally:
             if announced:
                 memory_step.tool_calls = sorted(announced, key=lambda call: call.id)
+
+    def execute_tool_call(self, tool_name: str, arguments: dict[str, str] | str) -> Any:
+        """Count every real task-tool attempt once, before its implementation runs."""
+
+        if tool_name == "final_answer" or not isinstance(self.model, RecordingModel):
+            return super().execute_tool_call(tool_name, arguments)
+        self.model.record_tool_call_attempt()
+        with agent_tool_call_precounted():
+            return super().execute_tool_call(tool_name, arguments)
 
     def resume(
         self, *, stream: bool = False

@@ -14,10 +14,12 @@ from risk_agent.checkpoint import (
     normalized_state_hash,
 )
 from risk_agent.monitoring import (
+    BudgetLimitExceeded,
     BudgetState,
     ExecutionMonitor,
     JsonlTraceWriter,
     RuntimeState,
+    agent_tool_call_precounted,
 )
 from risk_agent.tools.task_tool_registry import TaskToolRegistry
 
@@ -123,6 +125,86 @@ def test_execution_monitor_rejects_negative_tokens_before_tool_call(tmp_path) ->
         )
     assert called is False
     assert runtime.tool_history == []
+
+
+def test_execution_monitor_rejects_exhausted_tool_budget_before_side_effect(
+    tmp_path,
+) -> None:
+    task = api_task()
+    runtime = runtime_for_task()
+    runtime.budget.tool_calls_used = runtime.budget.max_tool_calls
+    trace = tmp_path / "trajectory.jsonl"
+    monitor = ExecutionMonitor(
+        writer=JsonlTraceWriter(trace),
+        runtime_state=runtime,
+        experiment_id="experiment_001",
+        run_id="run_001",
+        task_id=task.task_id,
+        template_id=task.template_id,
+        instance_id=task.instance_id,
+        model_id="local",
+        model_version="test",
+        prompt_version="test",
+        tool_version="test",
+        worker_id="local-wsl",
+        environment_id="environment_001",
+    )
+    calls = 0
+
+    def side_effect() -> None:
+        nonlocal calls
+        calls += 1
+
+    with pytest.raises(BudgetLimitExceeded, match="tool_call_budget"):
+        monitor.execute_tool(
+            step_id="step_blocked",
+            tool_name="blocked_tool",
+            arguments={},
+            token_usage={"total_tokens": 0},
+            checkpoint_id=None,
+            call=side_effect,
+        )
+
+    assert calls == 0
+    assert runtime.budget.tool_calls_used == runtime.budget.max_tool_calls
+    assert runtime.tool_history == []
+    assert not trace.exists()
+
+
+def test_execution_monitor_does_not_double_count_agent_precounted_attempt(
+    tmp_path,
+) -> None:
+    task = api_task()
+    runtime = runtime_for_task()
+    runtime.budget.record(tokens=0, tool_calls=1, latency_seconds=0.0)
+    monitor = ExecutionMonitor(
+        writer=JsonlTraceWriter(tmp_path / "trajectory.jsonl"),
+        runtime_state=runtime,
+        experiment_id="experiment_001",
+        run_id="run_001",
+        task_id=task.task_id,
+        template_id=task.template_id,
+        instance_id=task.instance_id,
+        model_id="local",
+        model_version="test",
+        prompt_version="test",
+        tool_version="test",
+        worker_id="local-wsl",
+        environment_id="environment_001",
+    )
+
+    with agent_tool_call_precounted():
+        assert monitor.execute_tool(
+            step_id="step_precounted",
+            tool_name="precounted_tool",
+            arguments={},
+            token_usage={"total_tokens": 0},
+            checkpoint_id=None,
+            call=lambda: "ok",
+        ) == "ok"
+
+    assert runtime.budget.tool_calls_used == 1
+    assert len(runtime.tool_history) == 1
 
 
 def test_checkpoint_round_trip_restores_files_database_memory_tools_and_budget(tmp_path) -> None:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from smolagents import Model, Tool
@@ -52,9 +53,16 @@ class ScriptedModel(Model):
         )
         self.responses = list(responses)
         self.calls = 0
+        self.call_kwargs: list[dict[str, object]] = []
+        self.client_kwargs = {
+            "base_url": "https://worker.test/v1",
+            "api_key": "fixture-secret-must-not-be-fingerprinted",
+            "max_retries": 0,
+        }
 
     def generate(self, *args, **kwargs) -> ChatMessage:
         self.calls += 1
+        self.call_kwargs.append(dict(kwargs))
         if not self.responses:
             raise AssertionError("Unexpected scripted model call")
         return self.responses.pop(0)
@@ -67,6 +75,16 @@ class FailingModel(ScriptedModel):
     def generate(self, *args, **kwargs) -> ChatMessage:
         self.calls += 1
         raise RuntimeError("scripted provider failure")
+
+
+class TimeoutModel(ScriptedModel):
+    def __init__(self) -> None:
+        super().__init__([])
+
+    def generate(self, *args, **kwargs) -> ChatMessage:
+        self.calls += 1
+        self.call_kwargs.append(dict(kwargs))
+        raise TimeoutError("scripted provider timeout")
 
 
 class IncrementTool(Tool):
@@ -105,7 +123,9 @@ class IncrementTool(Tool):
                 checkpoint_id=None,
             )
         )
-        self.runtime.budget.record(tokens=0, tool_calls=1, latency_seconds=0.01)
+        # CheckpointableToolCallingAgent owns task-tool attempt accounting at the
+        # universal execution boundary; this fixture records only its local latency.
+        self.runtime.budget.record(tokens=0, tool_calls=0, latency_seconds=0.01)
         return result
 
 
@@ -130,7 +150,12 @@ class ErrorProbeTool(Tool):
     inputs = {}
     output_type = "string"
 
+    def __init__(self) -> None:
+        self.calls = 0
+        super().__init__()
+
     def forward(self) -> str:
+        self.calls += 1
         raise ValueError("visible probe failure")
 
 
@@ -868,3 +893,301 @@ def test_resume_contract_and_restored_counter_cannot_be_reinstalled(
     with pytest.raises(ValueError, match="already installed"):
         model.expect(expected)
     stream.close()
+
+
+def _first_action_step(agent: CheckpointableToolCallingAgent) -> ActionStep:
+    stream = agent.run("Exercise one budget boundary.", stream=True)
+    event = None
+    while not isinstance(event, ActionStep):
+        event = next(stream)
+    stream.close()
+    return event
+
+
+def _budget_agent(
+    response: ChatMessage,
+    runtime: RuntimeState,
+    tool: Tool,
+    *,
+    clock=None,
+) -> tuple[CheckpointableToolCallingAgent, RecordingModel, ScriptedModel]:
+    underlying = ScriptedModel([response])
+    kwargs = {"runtime_state": runtime, "max_model_calls": 10}
+    if clock is not None:
+        kwargs["clock"] = clock
+    model = RecordingModel(underlying, **kwargs)
+    agent = CheckpointableToolCallingAgent(
+        tools=[tool], model=model, max_steps=3, verbosity_level=0
+    )
+    return agent, model, underlying
+
+
+def test_tool_budget_allows_last_call_and_counts_it_once() -> None:
+    runtime = RuntimeState(
+        seed=1,
+        budget=BudgetState(50_000, 12, 900.0, tool_calls_used=11),
+    )
+    tool = ReadOnlyProbeTool()
+    agent, _, _ = _budget_agent(
+        _calls_message([("call-last", "read_probe", {"value": "last"})]),
+        runtime,
+        tool,
+    )
+
+    event = _first_action_step(agent)
+
+    assert event.error is None
+    assert event.observations == "read:last"
+    assert tool.calls == 1
+    assert runtime.budget.tool_calls_used == 12
+
+
+def test_tool_budget_at_limit_allows_final_answer() -> None:
+    runtime = RuntimeState(
+        seed=1,
+        budget=BudgetState(50_000, 12, 900.0, tool_calls_used=12),
+    )
+    tool = ReadOnlyProbeTool()
+    agent, _, underlying = _budget_agent(_final_answer(), runtime, tool)
+
+    assert agent.run("Return the final answer.") == "done"
+    assert underlying.calls == 1
+    assert tool.calls == 0
+    assert runtime.budget.tool_calls_used == 12
+
+
+@pytest.mark.parametrize(
+    ("used", "calls"),
+    [
+        (12, [("call-blocked", "read_probe", {"value": "blocked"})]),
+        (
+            11,
+            [
+                ("call-one", "read_probe", {"value": "one"}),
+                ("call-two", "read_probe", {"value": "two"}),
+            ],
+        ),
+    ],
+)
+def test_tool_budget_rejects_whole_batch_before_any_side_effect(
+    used: int, calls: list[tuple[str, str, dict[str, str]]]
+) -> None:
+    runtime = RuntimeState(
+        seed=1,
+        budget=BudgetState(50_000, 12, 900.0, tool_calls_used=used),
+    )
+    tool = ReadOnlyProbeTool()
+    agent, _, _ = _budget_agent(_calls_message(calls), runtime, tool)
+
+    event = _first_action_step(agent)
+
+    assert event.error is not None
+    assert "tool_call_budget" in str(event.error)
+    assert tool.calls == 0
+    assert runtime.budget.tool_calls_used == used
+    assert runtime.budget.tool_calls_used <= runtime.budget.max_tool_calls
+
+
+def test_failed_tool_attempt_consumes_exactly_one_call() -> None:
+    runtime = RuntimeState(
+        seed=1,
+        budget=BudgetState(50_000, 12, 900.0, tool_calls_used=11),
+    )
+    tool = ErrorProbeTool()
+    agent, _, _ = _budget_agent(
+        _calls_message([("call-fails", "error_probe", {})]), runtime, tool
+    )
+
+    event = _first_action_step(agent)
+
+    assert event.error is not None
+    assert "visible probe failure" in str(event.error)
+    assert tool.calls == 1
+    assert runtime.budget.tool_calls_used == 12
+
+
+@pytest.mark.parametrize(
+    ("initial", "usage", "expected", "status"),
+    [
+        (49_999, TokenUsage(input_tokens=1, output_tokens=0), 50_000, "succeeded"),
+        (49_999, TokenUsage(input_tokens=1, output_tokens=1), 50_001, "budget_violation"),
+    ],
+)
+def test_token_budget_exact_and_overage_boundaries(
+    initial: int, usage: TokenUsage, expected: int, status: str
+) -> None:
+    response = _final_answer()
+    response.token_usage = usage
+    runtime = RuntimeState(
+        seed=1,
+        budget=BudgetState(50_000, 12, 900.0, tokens_used=initial),
+    )
+    underlying = ScriptedModel([response])
+    model = RecordingModel(underlying, runtime_state=runtime, max_model_calls=10)
+
+    model.generate([ChatMessage(role=MessageRole.USER, content="boundary")])
+
+    assert runtime.budget.tokens_used == expected
+    assert model.requests[-1].status == status
+    assert underlying.call_kwargs[0]["max_tokens"] == 1
+    assert underlying.kwargs["max_tokens"] == 128
+    if expected > runtime.budget.max_tokens:
+        assert model.post_response_budget_violation == "token_budget_exceeded"
+        with pytest.raises(ModelRequestRejected, match="token_budget"):
+            model.generate([ChatMessage(role=MessageRole.USER, content="blocked")])
+
+
+def test_token_overage_response_cannot_execute_tool() -> None:
+    runtime = RuntimeState(
+        seed=1,
+        budget=BudgetState(50_000, 12, 900.0, tokens_used=49_999),
+    )
+    tool = ReadOnlyProbeTool()
+    agent, model, _ = _budget_agent(
+        _calls_message([("call-over-token", "read_probe", {"value": "unsafe"})]),
+        runtime,
+        tool,
+    )
+
+    event = _first_action_step(agent)
+
+    assert runtime.budget.tokens_used == 50_001
+    assert model.requests[-1].difference == "token_budget_exceeded"
+    assert event.error is not None
+    assert "response_tool_calls_blocked" in str(event.error)
+    assert tool.calls == 0
+    assert runtime.budget.tool_calls_used == 0
+
+
+@pytest.mark.parametrize(
+    ("elapsed", "expected_status", "expected_violation"),
+    [
+        (0.5, "succeeded", None),
+        (1.0, "succeeded", None),
+        (1.25, "budget_violation", "latency_budget_exceeded"),
+    ],
+)
+def test_latency_budget_below_exact_and_overage_boundaries(
+    elapsed: float, expected_status: str, expected_violation: str | None
+) -> None:
+    ticks = iter([100.0, 100.0 + elapsed])
+    runtime = RuntimeState(
+        seed=1,
+        budget=BudgetState(50_000, 12, 900.0, latency_seconds_used=899.0),
+    )
+    underlying = ScriptedModel([_final_answer()])
+    model = RecordingModel(
+        underlying,
+        runtime_state=runtime,
+        max_model_calls=10,
+        clock=lambda: next(ticks),
+    )
+
+    model.generate([ChatMessage(role=MessageRole.USER, content="latency")])
+
+    assert runtime.budget.latency_seconds_used == pytest.approx(899.0 + elapsed)
+    assert model.requests[-1].status == expected_status
+    assert model.post_response_budget_violation == expected_violation
+    assert underlying.call_kwargs[0]["timeout"] == pytest.approx(1.0)
+
+
+def test_timeout_records_latency_and_missing_usage_without_forging_zero() -> None:
+    ticks = iter([100.0, 101.25])
+    runtime = RuntimeState(
+        seed=1,
+        budget=BudgetState(50_000, 12, 900.0, latency_seconds_used=899.0),
+    )
+    underlying = TimeoutModel()
+    model = RecordingModel(
+        underlying,
+        runtime_state=runtime,
+        max_model_calls=10,
+        clock=lambda: next(ticks),
+    )
+
+    with pytest.raises(TimeoutError, match="provider timeout"):
+        model.generate([ChatMessage(role=MessageRole.USER, content="timeout")])
+    with pytest.raises(ModelRequestRejected, match="token_usage_unavailable"):
+        model.generate([ChatMessage(role=MessageRole.USER, content="blocked")])
+
+    assert runtime.budget.tokens_used == 0
+    assert runtime.budget.latency_seconds_used == pytest.approx(900.25)
+    assert model.requests[0].status == "failed"
+    assert model.requests[0].prompt_tokens is None
+    assert model.requests[0].completion_tokens is None
+    assert underlying.calls == 1
+
+
+def test_latency_overage_response_cannot_execute_tool() -> None:
+    ticks = iter([100.0, 101.25])
+    runtime = RuntimeState(
+        seed=1,
+        budget=BudgetState(50_000, 12, 900.0, latency_seconds_used=899.0),
+    )
+    tool = ReadOnlyProbeTool()
+    agent, model, _ = _budget_agent(
+        _calls_message([("call-over-latency", "read_probe", {"value": "unsafe"})]),
+        runtime,
+        tool,
+        clock=lambda: next(ticks),
+    )
+
+    event = _first_action_step(agent)
+
+    assert model.requests[-1].difference == "latency_budget_exceeded"
+    assert event.error is not None
+    assert "response_tool_calls_blocked" in str(event.error)
+    assert tool.calls == 0
+    assert runtime.budget.tool_calls_used == 0
+
+
+@pytest.mark.parametrize(
+    ("mutation", "difference"),
+    [
+        ("underlying_model_id", "underlying_model_id"),
+        ("underlying_generation", "underlying_generation_config"),
+        ("endpoint", "provider_endpoint_or_request_config"),
+        ("live_endpoint", "provider_endpoint_or_request_config"),
+    ],
+)
+def test_underlying_model_fingerprint_rejects_mutation_before_provider(
+    mutation: str, difference: str
+) -> None:
+    underlying = ScriptedModel([_final_answer()])
+    if mutation == "live_endpoint":
+        underlying.client = SimpleNamespace(
+            base_url="https://worker.test/v1", max_retries=0, timeout=30.0
+        )
+    model = RecordingModel(underlying, max_model_calls=10)
+    if mutation == "underlying_model_id":
+        underlying.model_id = "mutated-model"
+    elif mutation == "underlying_generation":
+        underlying.kwargs["temperature"] = 0.7
+    elif mutation == "endpoint":
+        underlying.client_kwargs["base_url"] = "https://other-worker.test/v1"
+    else:
+        underlying.client.base_url = "https://other-worker.test/v1"
+
+    with pytest.raises(ModelRequestRejected, match=difference):
+        model.generate([ChatMessage(role=MessageRole.USER, content="identity")])
+
+    assert underlying.calls == 0
+    assert model.executed_calls == 0
+    assert model.requests[-1].difference == difference
+
+
+def test_model_fingerprint_retains_only_secret_presence_metadata() -> None:
+    underlying = ScriptedModel([_final_answer()])
+    underlying.model_version = "fixture-version"
+    underlying.worker_id = "worker-fixture"
+    model = RecordingModel(underlying, max_model_calls=10)
+
+    fingerprint = model.model_fingerprint
+
+    assert "fixture-secret-must-not-be-fingerprinted" not in str(fingerprint)
+    assert fingerprint["client_kwargs"]["api_key"] == {
+        "present": True,
+        "sensitive": True,
+    }
+    assert fingerprint["optional"]["model_version"] == "fixture-version"
+    assert fingerprint["optional"]["worker_id"] == "worker-fixture"

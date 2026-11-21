@@ -4,7 +4,12 @@ import math
 
 import pytest
 
-from risk_agent.monitoring import BudgetState, RuntimeState, ToolHistoryEntry
+from risk_agent.monitoring import (
+    BudgetLimitExceeded,
+    BudgetState,
+    RuntimeState,
+    ToolHistoryEntry,
+)
 
 
 def history_entry() -> ToolHistoryEntry:
@@ -111,3 +116,17 @@ def test_runtime_deserialization_rejects_silent_scalar_coercion() -> None:
 
     with pytest.raises(ValueError, match="seed must be an integer"):
         RuntimeState.from_dict(document)
+
+
+def test_tool_call_budget_record_never_exceeds_hard_limit() -> None:
+    budget = BudgetState(
+        max_tokens=100,
+        max_tool_calls=12,
+        max_latency_seconds=30.0,
+        tool_calls_used=12,
+    )
+
+    with pytest.raises(BudgetLimitExceeded, match="tool_call_budget"):
+        budget.record(tokens=0, tool_calls=1, latency_seconds=0.0)
+
+    assert budget.tool_calls_used == 12

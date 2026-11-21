@@ -8,6 +8,10 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Mapping
 
 
+class BudgetLimitExceeded(RuntimeError):
+    """A requested resource increment would cross a hard budget limit."""
+
+
 def _validate_json_value(value: Any, *, path: str = "$") -> None:
     if value is None or isinstance(value, (bool, int, str)):
         return
@@ -81,11 +85,20 @@ class BudgetState:
         _require_int(self.tokens_used, "tokens_used")
         _require_int(self.tool_calls_used, "tool_calls_used")
         _require_number(self.latency_seconds_used, "latency_seconds_used")
+        if self.tool_calls_used > self.max_tool_calls:
+            raise BudgetLimitExceeded(
+                "tool_call_budget: restored usage exceeds the configured limit"
+            )
 
     def record(self, *, tokens: int, tool_calls: int, latency_seconds: float) -> None:
         _require_int(tokens, "tokens")
         _require_int(tool_calls, "tool_calls")
         _require_number(latency_seconds, "latency_seconds")
+        if self.tool_calls_used + tool_calls > self.max_tool_calls:
+            raise BudgetLimitExceeded(
+                "tool_call_budget: requested "
+                f"{tool_calls} call(s) with {self.max_tool_calls - self.tool_calls_used} remaining"
+            )
         self.tokens_used += tokens
         self.tool_calls_used += tool_calls
         self.latency_seconds_used += latency_seconds

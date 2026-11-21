@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
@@ -19,6 +21,22 @@ _SENSITIVE_KEYS = {
     "secret",
     "access_token",
 }
+
+
+_AGENT_TOOL_CALL_PRECOUNTED: ContextVar[bool] = ContextVar(
+    "agent_tool_call_precounted", default=False
+)
+
+
+@contextmanager
+def agent_tool_call_precounted():
+    """Tell nested monitors that the Agent boundary already counted this attempt."""
+
+    token = _AGENT_TOOL_CALL_PRECOUNTED.set(True)
+    try:
+        yield
+    finally:
+        _AGENT_TOOL_CALL_PRECOUNTED.reset(token)
 
 
 def redact_sensitive(value: Any) -> Any:
@@ -102,6 +120,16 @@ class ExecutionMonitor:
         normalized_tokens = {key: int(value) for key, value in token_usage.items()}
         if any(value < 0 for value in normalized_tokens.values()):
             raise ValueError("Token usage must be non-negative")
+        # Count before the call so a rejected budget cannot permit side effects and a
+        # failed tool attempt still consumes exactly one call. Checkpointable agents
+        # count at their universal execute_tool_call boundary; the ContextVar is copied
+        # into smolagents' worker threads and prevents this monitor from double counting.
+        if not _AGENT_TOOL_CALL_PRECOUNTED.get():
+            self.runtime_state.budget.record(
+                tokens=0,
+                tool_calls=1,
+                latency_seconds=0.0,
+            )
         started = time.perf_counter()
         result: Any = None
         error_type: str | None = None
@@ -132,7 +160,7 @@ class ExecutionMonitor:
             self.runtime_state.tool_history.append(entry)
             self.runtime_state.budget.record(
                 tokens=self._token_count(normalized_tokens),
-                tool_calls=1,
+                tool_calls=0,
                 latency_seconds=latency,
             )
             self.writer.append(

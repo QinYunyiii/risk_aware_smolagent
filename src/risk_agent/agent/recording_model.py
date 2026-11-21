@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import copy
+import json
+import math
+import threading
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence
 
@@ -13,6 +17,92 @@ from smolagents.models import ChatMessage, Model
 from risk_agent.monitoring import RuntimeState
 
 from .agent_state_adapter import canonical_hash, canonical_json, serialize_chat_message
+
+
+_SENSITIVE_FINGERPRINT_PARTS = (
+    "api_key",
+    "authorization",
+    "password",
+    "private_key",
+    "secret",
+    "access_token",
+)
+
+
+def _is_sensitive_fingerprint_key(key: str) -> bool:
+    normalized = key.casefold()
+    return normalized == "token" or any(
+        part in normalized for part in _SENSITIVE_FINGERPRINT_PARTS
+    )
+
+
+def _fingerprint_value(value: Any, *, key: str = "") -> Any:
+    """Return deterministic, secret-free identity material for request configuration."""
+
+    if _is_sensitive_fingerprint_key(key):
+        return {"sensitive": True, "present": value is not None and value != ""}
+    if value is None or isinstance(value, (bool, int, str)):
+        return value
+    if isinstance(value, float):
+        return value if math.isfinite(value) else repr(value)
+    if isinstance(value, Mapping):
+        return {
+            str(item_key): _fingerprint_value(item, key=str(item_key))
+            for item_key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+        }
+    if isinstance(value, (list, tuple)):
+        return [_fingerprint_value(item, key=key) for item in value]
+    return {
+        "type": f"{type(value).__module__}.{type(value).__qualname__}",
+        "object_identity": id(value),
+    }
+
+
+def _client_request_fingerprint(client: Any) -> dict[str, Any]:
+    if client is None:
+        return {}
+    result: dict[str, Any] = {
+        "type": f"{type(client).__module__}.{type(client).__qualname__}"
+    }
+    for attribute in ("base_url", "max_retries", "timeout"):
+        if hasattr(client, attribute):
+            value = getattr(client, attribute)
+            if attribute in {"base_url", "timeout"}:
+                value = str(value)
+            result[attribute] = _fingerprint_value(value, key=attribute)
+    return result
+
+
+def _actual_model_fingerprint(model: Model) -> dict[str, Any]:
+    """Capture the delegated object's request identity without retaining secrets."""
+
+    optional_attributes = {}
+    for attribute in (
+        "model_version",
+        "worker_id",
+        "api_base",
+        "base_url",
+        "endpoint",
+        "custom_role_conversions",
+        "requests_per_minute",
+    ):
+        if hasattr(model, attribute):
+            optional_attributes[attribute] = _fingerprint_value(
+                getattr(model, attribute), key=attribute
+            )
+    return {
+        "type": f"{type(model).__module__}.{type(model).__qualname__}",
+        "model_id": _fingerprint_value(model.model_id, key="model_id"),
+        "generation_config": _fingerprint_value(dict(model.kwargs), key="kwargs"),
+        "flatten_messages_as_text": bool(model.flatten_messages_as_text),
+        "tool_name_key": str(model.tool_name_key),
+        "tool_arguments_key": str(model.tool_arguments_key),
+        "client_kwargs": _fingerprint_value(
+            getattr(model, "client_kwargs", {}), key="client_kwargs"
+        ),
+        "client": _client_request_fingerprint(getattr(model, "client", None)),
+        "optional": optional_attributes,
+    }
 
 
 class ModelRequestRejected(RuntimeError):
@@ -91,6 +181,7 @@ class RecordingModel(Model):
         intercept_valid_request: bool = False,
         runtime_state: RuntimeState | None = None,
         max_model_calls: int | None = None,
+        clock: Callable[[], float] = time.perf_counter,
     ) -> None:
         super().__init__(
             flatten_messages_as_text=underlying.flatten_messages_as_text,
@@ -109,6 +200,7 @@ class RecordingModel(Model):
         self.intercept_valid_request = intercept_valid_request
         self._runtime_state = runtime_state
         self._max_model_calls = max_model_calls
+        self._clock = clock
         self._expected: ExpectedModelRequest | None = None
         self._contract_state = self._NORMAL
         self._step_state_provider: Callable[[], tuple[int, int]] | None = None
@@ -117,6 +209,18 @@ class RecordingModel(Model):
         self._local_tool_calls_used = 0
         self._local_latency_seconds_used = 0.0
         self._token_usage_complete = True
+        self._delegation_lock = threading.RLock()
+        self._tool_budget_lock = threading.RLock()
+        self._wrapper_model_id = self.model_id
+        self._wrapper_generation_fingerprint = canonical_json(
+            _fingerprint_value(dict(self.kwargs), key="kwargs")
+        )
+        # The canonical string is the immutable fingerprint. It contains only
+        # non-sensitive values and presence metadata for secret-bearing keys.
+        self._underlying_fingerprint = canonical_json(
+            _actual_model_fingerprint(self.underlying)
+        )
+        self._post_response_budget_violation: str | None = None
         self.requests: list[RecordedModelRequest] = []
         self.prior_model_calls = 0
         self.attempted_calls = 0
@@ -150,6 +254,16 @@ class RecordingModel(Model):
         return self._runtime_state is not None
 
     @property
+    def model_fingerprint(self) -> Mapping[str, Any]:
+        """Return a detached, secret-free view of the frozen delegated identity."""
+
+        return json.loads(self._underlying_fingerprint)
+
+    @property
+    def post_response_budget_violation(self) -> str | None:
+        return self._post_response_budget_violation
+
+    @property
     def model_calls_used(self) -> int:
         """Requests already delegated to the provider, including failed requests."""
 
@@ -173,6 +287,61 @@ class RecordingModel(Model):
             raise ValueError("Restored model call counter must be non-negative")
         self.prior_model_calls = value
         self._model_calls_restored = True
+
+    def _identity_difference(self) -> str | None:
+        if self.model_id != self._wrapper_model_id:
+            return "model_id"
+        if canonical_json(
+            _fingerprint_value(dict(self.kwargs), key="kwargs")
+        ) != self._wrapper_generation_fingerprint:
+            return "generation_config"
+        current = _actual_model_fingerprint(self.underlying)
+        frozen = json.loads(self._underlying_fingerprint)
+        if current["model_id"] != frozen["model_id"]:
+            return "underlying_model_id"
+        if current["generation_config"] != frozen["generation_config"]:
+            return "underlying_generation_config"
+        if (
+            current["client_kwargs"] != frozen["client_kwargs"]
+            or current["client"] != frozen["client"]
+            or current["optional"] != frozen["optional"]
+        ):
+            return "provider_endpoint_or_request_config"
+        if current != frozen:
+            return "underlying_model_fingerprint"
+        return None
+
+    def preflight_tool_call_batch(self, count: int) -> None:
+        """Atomically verify the entire non-final tool batch before side effects."""
+
+        if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+            raise ValueError("Tool batch count must be a non-negative integer")
+        with self._tool_budget_lock:
+            _, used, _, _, maximum, _ = self._budget_values()
+            if used + count > maximum:
+                raise ModelRequestRejected(
+                    "tool_call_budget: batch requires "
+                    f"{count} call(s), but only {max(0, maximum - used)} remain"
+                )
+
+    def record_tool_call_attempt(self) -> None:
+        """Count one real non-final tool attempt immediately before execution."""
+
+        with self._tool_budget_lock:
+            self.preflight_tool_call_batch(1)
+            if self._runtime_state is not None:
+                self._runtime_state.budget.record(
+                    tokens=0, tool_calls=1, latency_seconds=0.0
+                )
+            else:
+                self._local_tool_calls_used += 1
+
+    def require_tool_response_allowed(self) -> None:
+        if self._post_response_budget_violation is not None:
+            raise ModelRequestRejected(
+                "response_tool_calls_blocked: "
+                f"{self._post_response_budget_violation}"
+            )
 
     def expect(self, expected: ExpectedModelRequest) -> None:
         """Install the immutable one-shot resume contract.
@@ -237,6 +406,9 @@ class RecordingModel(Model):
         )
 
     def _persistent_difference(self, tools: list[dict[str, Any]]) -> str | None:
+        identity_difference = self._identity_difference()
+        if identity_difference is not None:
+            return identity_difference
         expected = self._expected
         if expected is not None:
             if self.model_id != expected.model_id:
@@ -330,7 +502,7 @@ class RecordingModel(Model):
         prompt_tokens: int | None,
         completion_tokens: int | None,
         latency_seconds: float,
-    ) -> None:
+    ) -> str | None:
         self.model_latency_seconds_observed += latency_seconds
         token_total: int | None = None
         if prompt_tokens is not None and completion_tokens is not None:
@@ -349,6 +521,79 @@ class RecordingModel(Model):
                 self._local_tokens_used = None
             elif self._local_tokens_used is not None:
                 self._local_tokens_used += token_total
+        tokens, _, latency, max_tokens, _, max_latency = self._budget_values()
+        if tokens is None:
+            return "token_usage_unavailable"
+        if tokens > max_tokens:
+            return "token_budget_exceeded"
+        if latency > max_latency:
+            return "latency_budget_exceeded"
+        return None
+
+    @staticmethod
+    def _numeric_timeout(value: Any) -> float | None:
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)) and math.isfinite(float(value)) and value > 0:
+            return float(value)
+        for attribute in ("read", "write", "connect", "pool"):
+            candidate = getattr(value, attribute, None)
+            if isinstance(candidate, (int, float)) and not isinstance(candidate, bool):
+                if math.isfinite(float(candidate)) and candidate > 0:
+                    return float(candidate)
+        return None
+
+    def _delegation_limits(self, request_kwargs: Mapping[str, Any]) -> dict[str, Any]:
+        """Constrain completion length and client timeout to observed remaining budgets.
+
+        In smolagents 1.26.0/OpenAI-compatible clients, ``max_tokens`` is a
+        completion-token cap, not a total-token cap. Prompt size is not exactly known
+        locally, so actual provider usage remains authoritative and overage fails closed.
+        """
+
+        tokens, _, latency, max_tokens, _, max_latency = self._budget_values()
+        limits: dict[str, Any] = {}
+        if tokens is not None and max_tokens < 2**63 - 1:
+            remaining_tokens = max_tokens - tokens
+            configured = self.underlying.kwargs.get("max_tokens")
+            requested = request_kwargs.get("max_tokens")
+            candidates = [remaining_tokens]
+            for value in (configured, requested):
+                if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+                    candidates.append(value)
+            limits["max_tokens"] = max(1, min(candidates))
+        if math.isfinite(max_latency):
+            remaining_latency = max_latency - latency
+            timeout_candidates = [remaining_latency]
+            for value in (
+                request_kwargs.get("timeout"),
+                self.underlying.kwargs.get("timeout"),
+                getattr(getattr(self.underlying, "client", None), "timeout", None),
+            ):
+                normalized = self._numeric_timeout(value)
+                if normalized is not None:
+                    timeout_candidates.append(normalized)
+            limits["timeout"] = max(1e-9, min(timeout_candidates))
+        return limits
+
+    @contextmanager
+    def _scoped_underlying_limits(self, limits: Mapping[str, Any]):
+        """Apply caps despite smolagents giving ``Model.kwargs`` highest priority."""
+
+        missing = object()
+        originals: dict[str, Any] = {}
+        for key, value in limits.items():
+            originals[key] = self.underlying.kwargs.get(key, missing)
+            if key in self.underlying.kwargs:
+                self.underlying.kwargs[key] = value
+        try:
+            yield
+        finally:
+            for key, original in originals.items():
+                if original is missing:
+                    self.underlying.kwargs.pop(key, None)
+                else:
+                    self.underlying.kwargs[key] = original
 
     def generate(
         self,
@@ -385,36 +630,54 @@ class RecordingModel(Model):
             )
             raise ModelRequestIntercepted("Valid model request intercepted before execution")
 
-        if self._contract_state == self._AWAITING:
-            self._contract_state = self._VERIFIED
-        self.executed_calls += 1
-        started = time.perf_counter()
-        try:
-            result = self.underlying.generate(
-                messages,
-                stop_sequences=stop_sequences,
-                response_format=response_format,
-                tools_to_call_from=tools_to_call_from,
-                **kwargs,
-            )
-        except Exception:
-            latency = max(0.0, time.perf_counter() - started)
-            self._record_observed_cost(
-                prompt_tokens=None,
-                completion_tokens=None,
-                latency_seconds=latency,
-            )
-            self._record(
-                messages=serialized,
-                schemas=schemas,
-                status="failed",
-                difference=None,
-                calls_before=calls_before,
-                latency_seconds=latency,
-            )
-            raise
+        self._post_response_budget_violation = None
+        with self._delegation_lock:
+            # Re-check immediately before delegation so mutation between the initial
+            # validation and the provider boundary cannot race the fingerprint guard.
+            difference = self._identity_difference()
+            if difference is not None:
+                self.rejected_calls += 1
+                self._record(
+                    messages=serialized,
+                    schemas=schemas,
+                    status="rejected",
+                    difference=difference,
+                    calls_before=calls_before,
+                )
+                raise ModelRequestRejected(f"Model request differs at {difference}")
+            if self._contract_state == self._AWAITING:
+                self._contract_state = self._VERIFIED
+            limits = self._delegation_limits(kwargs)
+            delegated_kwargs = {**kwargs, **limits}
+            self.executed_calls += 1
+            started = self._clock()
+            try:
+                with self._scoped_underlying_limits(limits):
+                    result = self.underlying.generate(
+                        messages,
+                        stop_sequences=stop_sequences,
+                        response_format=response_format,
+                        tools_to_call_from=tools_to_call_from,
+                        **delegated_kwargs,
+                    )
+            except Exception:
+                latency = max(0.0, self._clock() - started)
+                self._record_observed_cost(
+                    prompt_tokens=None,
+                    completion_tokens=None,
+                    latency_seconds=latency,
+                )
+                self._record(
+                    messages=serialized,
+                    schemas=schemas,
+                    status="failed",
+                    difference=None,
+                    calls_before=calls_before,
+                    latency_seconds=latency,
+                )
+                raise
 
-        latency = max(0.0, time.perf_counter() - started)
+        latency = max(0.0, self._clock() - started)
         usage = result.token_usage
         prompt_tokens = usage.input_tokens if usage is not None else None
         completion_tokens = usage.output_tokens if usage is not None else None
@@ -428,17 +691,18 @@ class RecordingModel(Model):
         ):
             prompt_tokens = None
             completion_tokens = None
-        self._record_observed_cost(
+        violation = self._record_observed_cost(
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             latency_seconds=latency,
         )
+        self._post_response_budget_violation = violation
         self.succeeded_calls += 1
         self._record(
             messages=serialized,
             schemas=schemas,
-            status="succeeded",
-            difference=None,
+            status="budget_violation" if violation is not None else "succeeded",
+            difference=violation,
             calls_before=calls_before,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
