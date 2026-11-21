@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import sqlite3
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -64,6 +65,7 @@ class IsolationFixture:
     checkpoint_path: Path
     manifest: Any
     before_inventory: dict[str, dict[str, Any]]
+    source_task: Any
     environment_a: TaskEnvironment
     environment_b: TaskEnvironment
     restored_a: Any
@@ -105,6 +107,7 @@ def isolated_restores(tmp_path: Path) -> IsolationFixture:
         checkpoint_path=snapshot.checkpoint_path,
         manifest=snapshot.manifest,
         before_inventory=before,
+        source_task=source.task,
         environment_a=environment_a,
         environment_b=environment_b,
         restored_a=restored_a,
@@ -178,6 +181,54 @@ def test_runtime_and_agent_state_objects_have_no_mutable_aliasing(
     assert isolated_restores.agent_a.memory is not isolated_restores.agent_b.memory
     assert isolated_restores.agent_a.memory.steps is not isolated_restores.agent_b.memory.steps
     assert isolated_restores.agent_a.state is not isolated_restores.agent_b.state
+
+
+def test_task_specs_and_nested_mutable_configuration_are_bidirectionally_isolated(
+    isolated_restores: IsolationFixture,
+) -> None:
+    item = isolated_restores
+    source = item.source_task
+    task_a = item.environment_a.task
+    task_b = item.environment_b.task
+    source_before = deepcopy(source)
+
+    assert task_a == task_b == source
+    assert task_a is not task_b
+    assert task_a is not source
+    assert task_b is not source
+    assert task_a.inventory is not task_b.inventory
+    assert task_a.inventory[0] is not task_b.inventory[0]
+    assert task_a.orders is not task_b.orders
+    assert task_a.orders[0] is not task_b.orders[0]
+    assert task_a.expected is not task_b.expected
+    assert task_a.reference_steps is not task_b.reference_steps
+    assert task_a.reference_steps[0] is not task_b.reference_steps[0]
+    assert task_a.reference_steps[0].arguments is not task_b.reference_steps[0].arguments
+
+    task_a.inventory[0]["quantity"] = 101  # type: ignore[index]
+    task_a.orders[0]["status"] = "branch-a-task"  # type: ignore[index]
+    task_a.expected["status"] = "branch-a-expected"  # type: ignore[index]
+    task_a.reference_steps[0].arguments["new_status"] = "branch-a-step"  # type: ignore[index]
+
+    assert task_b.inventory[0]["quantity"] == 5
+    assert task_b.orders[0]["status"] == "processing"
+    assert task_b.expected["status"] == "shipped"
+    assert task_b.reference_steps[0].arguments["new_status"] == "shipped"
+    assert source == source_before
+
+    a_after = deepcopy(task_a)
+    task_b.inventory[0]["quantity"] = 202  # type: ignore[index]
+    task_b.orders[0]["status"] = "branch-b-task"  # type: ignore[index]
+    task_b.expected["status"] = "branch-b-expected"  # type: ignore[index]
+    task_b.reference_steps[0].arguments["new_status"] = "branch-b-step"  # type: ignore[index]
+
+    assert task_a == a_after
+    assert source == source_before
+    assert task_a.task_id == task_b.task_id == source.task_id
+    assert task_a.template_id == task_b.template_id == source.template_id
+    assert task_a.instance_id == task_b.instance_id == source.instance_id
+    assert task_a.split == task_b.split == source.split
+    assert task_a.seed == task_b.seed == source.seed
 
 
 def test_branch_a_file_sqlite_runtime_and_agent_mutations_do_not_affect_b(

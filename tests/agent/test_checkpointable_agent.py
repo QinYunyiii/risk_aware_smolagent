@@ -214,9 +214,13 @@ def _runtime(task: TaskSpec) -> RuntimeState:
 
 
 def _agent(environment: TaskEnvironment, runtime: RuntimeState, responses: list[ChatMessage]):
-    model = RecordingModel(ScriptedModel(responses))
+    model = RecordingModel(
+        ScriptedModel(responses),
+        runtime_state=runtime,
+        max_model_calls=10,
+    )
     agent = CheckpointableToolCallingAgent(
-        tools=[IncrementTool(environment, runtime)],
+        tools=[IncrementTool(environment, runtime), ErrorProbeTool()],
         model=model,
         max_steps=10,
         verbosity_level=0,
@@ -245,13 +249,16 @@ def _identity() -> CheckpointIdentityV2:
     )
 
 
-def _runtime_metadata() -> RuntimeCheckpointMetadata:
+def _runtime_metadata(runtime: RuntimeState) -> RuntimeCheckpointMetadata:
     return RuntimeCheckpointMetadata(
         max_model_calls=10,
         model_calls_used=1,
         prompt_tokens_used=4,
         completion_tokens_used=2,
-        resource_usage={"wall_seconds": 0.01, "gpu_used": False},
+        resource_usage={
+            "wall_seconds": runtime.budget.latency_seconds_used,
+            "gpu_used": False,
+        },
         tool_adapter_state=AdapterStateMetadata(
             AdapterStateStatus.STATEFUL, {"next_call_index": 2}
         ),
@@ -261,7 +268,14 @@ def _runtime_metadata() -> RuntimeCheckpointMetadata:
     )
 
 
-def _expected(snapshot, first_request, *, messages=None, generation=None) -> ExpectedModelRequest:
+def _expected(
+    snapshot,
+    first_request,
+    runtime: RuntimeState,
+    *,
+    messages=None,
+    generation=None,
+) -> ExpectedModelRequest:
     payload = snapshot.payload
     return ExpectedModelRequest(
         messages=messages if messages is not None else payload["canonical_next_model_input"],
@@ -273,11 +287,11 @@ def _expected(snapshot, first_request, *, messages=None, generation=None) -> Exp
         remaining_steps=payload["agent"]["remaining_steps"],
         model_calls_used=1,
         max_model_calls=10,
-        tool_calls_used=1,
+        tool_calls_used=runtime.budget.tool_calls_used,
         max_tool_calls=12,
-        tokens_used=6,
+        tokens_used=runtime.budget.tokens_used,
         max_tokens=50_000,
-        latency_seconds_used=0.01,
+        latency_seconds_used=runtime.budget.latency_seconds_used,
         max_latency_seconds=900.0,
     )
 
@@ -292,7 +306,6 @@ def _capture(tmp_path: Path):
     event = None
     while not isinstance(event, ActionStep):
         event = next(stream)
-    runtime.budget.tokens_used = 6
     assert event.observations == "counter=1"
     assert agent.step_number == 1
     capture = DecisionCheckpointCapture()
@@ -304,7 +317,7 @@ def _capture(tmp_path: Path):
         environment=environment,
         runtime_state=runtime,
         identity=_identity(),
-        runtime_metadata=_runtime_metadata(),
+        runtime_metadata=_runtime_metadata(runtime),
         environment_metadata=EnvironmentCheckpointMetadata(
             completed_side_effects=[{"idempotency_key": "day3-key-001", "commit_state": "committed"}],
             latest_completed_operation={"kind": "tool_call", "call_id": "call-day3-001"},
@@ -329,9 +342,9 @@ def test_capture_boundary_is_after_append_before_next_model_and_close_is_safe(tm
 
 
 def test_exact_original_and_restored_first_inputs_and_no_tool_replay(tmp_path: Path) -> None:
-    task, source, _, agent, source_model, source_stream, captured = _capture(tmp_path)
+    task, source, runtime, agent, source_model, source_stream, captured = _capture(tmp_path)
     snapshot = AgentStateAdapter.capture(agent)
-    expected = _expected(snapshot, source_model.requests[0])
+    expected = _expected(snapshot, source_model.requests[0], runtime)
     source_model.expect(expected)
     source_model.intercept_valid_request = True
     next(source_stream)
@@ -361,9 +374,9 @@ def test_exact_original_and_restored_first_inputs_and_no_tool_replay(tmp_path: P
     assert restored_model.model_calls_used == 2
     action_steps = [step for step in restored_agent.memory.steps if isinstance(step, ActionStep)]
     assert [step.step_number for step in action_steps] == [1, 2]
-    assert restored.runtime_state.budget.tokens_used == 6
+    assert restored.runtime_state.budget.tokens_used == 16
     assert restored.runtime_state.budget.tool_calls_used == 1
-    assert restored.runtime_state.budget.latency_seconds_used == 0.01
+    assert restored.runtime_state.budget.latency_seconds_used > runtime.budget.latency_seconds_used
     assert restored_environment.resolve_path("counter.txt").read_text() == "1"
     assert source.resolve_path("counter.txt").read_text() == "1"
     assert len(restored.runtime_state.tool_history) == 1
@@ -373,7 +386,7 @@ def test_exact_original_and_restored_first_inputs_and_no_tool_replay(tmp_path: P
 def test_restored_request_mismatch_is_rejected_before_model_execution(
     tmp_path: Path, mutation: str
 ) -> None:
-    _, _, _, agent, source_model, source_stream, captured = _capture(tmp_path)
+    _, _, runtime, agent, source_model, source_stream, captured = _capture(tmp_path)
     snapshot = AgentStateAdapter.capture(agent)
     messages = snapshot.payload["canonical_next_model_input"]
     generation = snapshot.payload["model"]["generation"]
@@ -402,6 +415,7 @@ def test_restored_request_mismatch_is_rejected_before_model_execution(
     expected = _expected(
         snapshot,
         source_model.requests[0],
+        runtime,
         messages=messages,
         generation=generation,
     )
@@ -437,7 +451,7 @@ def test_capture_rejects_missing_observation_and_exhausted_budget(tmp_path: Path
             environment=environment,
             runtime_state=runtime,
             identity=_identity(),
-            runtime_metadata=_runtime_metadata(),
+            runtime_metadata=_runtime_metadata(runtime),
             environment_metadata=EnvironmentCheckpointMetadata([], None),
         )
     assert not (tmp_path / "checkpoints" / "rejected").exists()
@@ -481,7 +495,7 @@ def test_capture_invariants_are_measured_and_rejections_have_reasons(
             environment=environment,
             runtime_state=runtime,
             identity=_identity(),
-            runtime_metadata=_runtime_metadata(),
+            runtime_metadata=_runtime_metadata(runtime),
             environment_metadata=EnvironmentCheckpointMetadata([], None),
             verifier_has_run=verifier_has_run,
             active_tool_calls=active_tool_calls,
@@ -542,10 +556,10 @@ def test_agent_visible_tool_error_preserves_call_id_and_close_has_no_retry() -> 
 
 
 def test_restored_exhausted_model_budget_blocks_before_underlying_request(tmp_path: Path) -> None:
-    _, _, _, agent, source_model, stream, _ = _capture(tmp_path)
+    _, _, runtime, agent, source_model, stream, _ = _capture(tmp_path)
     snapshot = AgentStateAdapter.capture(agent)
     expected = replace(
-        _expected(snapshot, source_model.requests[0]),
+        _expected(snapshot, source_model.requests[0], runtime),
         model_calls_used=10,
         max_model_calls=10,
     )
@@ -564,10 +578,10 @@ def test_restored_exhausted_model_budget_blocks_before_underlying_request(tmp_pa
 def test_failed_underlying_request_consumes_model_call_budget_and_cannot_bypass_limit(
     tmp_path: Path,
 ) -> None:
-    _, _, _, agent, source_model, stream, _ = _capture(tmp_path)
+    _, _, runtime, agent, source_model, stream, _ = _capture(tmp_path)
     snapshot = AgentStateAdapter.capture(agent)
     expected = replace(
-        _expected(snapshot, source_model.requests[0]),
+        _expected(snapshot, source_model.requests[0], runtime),
         model_calls_used=9,
         max_model_calls=10,
     )
@@ -588,7 +602,6 @@ def test_failed_underlying_request_consumes_model_call_budget_and_cannot_bypass_
     assert model.requests[-1].status == "failed"
     assert underlying.calls == 1
 
-    model.expect(replace(expected, model_calls_used=10))
     with pytest.raises(ModelRequestRejected, match="model_call_budget"):
         model.generate(
             agent.write_memory_to_messages(),
@@ -604,12 +617,12 @@ def test_failed_underlying_request_consumes_model_call_budget_and_cannot_bypass_
 
 
 def test_valid_interception_does_not_consume_model_call_budget(tmp_path: Path) -> None:
-    _, _, _, agent, source_model, stream, _ = _capture(tmp_path)
+    _, _, runtime, agent, source_model, stream, _ = _capture(tmp_path)
     snapshot = AgentStateAdapter.capture(agent)
     underlying = ScriptedModel([_final_answer()])
     model = RecordingModel(underlying, intercept_valid_request=True)
     model.restore_model_calls_used(1)
-    model.expect(_expected(snapshot, source_model.requests[0]))
+    model.expect(_expected(snapshot, source_model.requests[0], runtime))
     with pytest.raises(ModelRequestIntercepted):
         model.generate(
             agent.write_memory_to_messages(),
@@ -620,4 +633,238 @@ def test_valid_interception_does_not_consume_model_call_budget(tmp_path: Path) -
     assert model.model_calls_used == 1
     assert model.requests[-1].status == "intercepted"
     assert underlying.calls == 0
+    stream.close()
+
+
+@pytest.mark.parametrize(
+    ("mutation", "difference"),
+    [
+        ("messages", "messages"),
+        ("model_id", "model_id"),
+        ("tool_schema", "public_tool_schemas"),
+        ("generation", "generation_config"),
+    ],
+)
+def test_first_resume_contract_rejects_identity_and_input_mismatches(
+    tmp_path: Path,
+    mutation: str,
+    difference: str,
+) -> None:
+    _, _, runtime, agent, source_model, stream, _ = _capture(tmp_path)
+    snapshot = AgentStateAdapter.capture(agent)
+    expected = _expected(snapshot, source_model.requests[0], runtime)
+    if mutation == "messages":
+        expected = replace(expected, messages=[])
+    elif mutation == "model_id":
+        expected = replace(expected, model_id="different-model")
+    elif mutation == "tool_schema":
+        expected = replace(expected, public_tool_schemas=[])
+    else:
+        expected = replace(
+            expected,
+            generation_config={**expected.generation_config, "temperature": 0.5},
+        )
+    underlying = ScriptedModel([_final_answer()])
+    model = RecordingModel(underlying)
+    model.restore_model_calls_used(1)
+    model.expect(expected)
+
+    with pytest.raises(ModelRequestRejected, match=difference):
+        model.generate(
+            agent.write_memory_to_messages(),
+            tools_to_call_from=agent.tools_and_managed_agents,
+        )
+
+    assert model.resume_contract_pending
+    assert model.model_calls_used == 1
+    assert model.executed_calls == model.succeeded_calls == 0
+    assert model.requests[-1].difference == difference
+    assert underlying.calls == 0
+    stream.close()
+
+
+def test_third_restored_request_is_still_limited_by_model_call_budget(
+    tmp_path: Path,
+) -> None:
+    _, _, runtime, agent, source_model, stream, _ = _capture(tmp_path)
+    snapshot = AgentStateAdapter.capture(agent)
+    expected = replace(
+        _expected(snapshot, source_model.requests[0], runtime),
+        model_calls_used=8,
+    )
+    underlying = ScriptedModel([_final_answer(), _final_answer(), _final_answer()])
+    model = RecordingModel(underlying)
+    model.restore_model_calls_used(8)
+    model.expect(expected)
+
+    for _ in range(2):
+        model.generate(
+            agent.write_memory_to_messages(),
+            tools_to_call_from=agent.tools_and_managed_agents,
+        )
+    with pytest.raises(ModelRequestRejected, match="model_call_budget"):
+        model.generate(
+            agent.write_memory_to_messages(),
+            tools_to_call_from=agent.tools_and_managed_agents,
+        )
+
+    assert model.first_request_verified
+    assert model.model_calls_used == 10
+    assert model.executed_calls == model.succeeded_calls == 2
+    assert model.requests[-1].difference == "model_call_budget"
+    assert underlying.calls == 2
+    stream.close()
+
+
+@pytest.mark.parametrize(
+    ("budget", "difference"),
+    [
+        ("token", "token_budget"),
+        ("latency", "latency_budget"),
+        ("tool", "tool_call_budget"),
+        ("step", "remaining_steps"),
+    ],
+)
+def test_persistent_guard_rejects_exhausted_live_budgets(
+    tmp_path: Path,
+    budget: str,
+    difference: str,
+) -> None:
+    _, _, runtime, agent, source_model, stream, _ = _capture(tmp_path)
+    snapshot = AgentStateAdapter.capture(agent)
+    expected = _expected(snapshot, source_model.requests[0], runtime)
+    if budget == "token":
+        expected = replace(expected, tokens_used=expected.max_tokens)
+    elif budget == "latency":
+        expected = replace(
+            expected,
+            latency_seconds_used=expected.max_latency_seconds,
+        )
+    elif budget == "tool":
+        expected = replace(
+            expected,
+            tool_calls_used=expected.max_tool_calls + 1,
+        )
+    underlying = ScriptedModel([_final_answer()])
+    model = RecordingModel(underlying)
+    model.restore_model_calls_used(1)
+    model.expect(expected)
+    if budget == "step":
+        model.bind_step_state_provider(lambda: (11, 10))
+
+    with pytest.raises(ModelRequestRejected, match=difference):
+        model.generate(
+            agent.write_memory_to_messages(),
+            tools_to_call_from=agent.tools_and_managed_agents,
+        )
+
+    assert model.model_calls_used == 1
+    assert model.executed_calls == 0
+    assert model.requests[-1].difference == difference
+    assert underlying.calls == 0
+    stream.close()
+
+
+def test_normal_execution_without_resume_contract_uses_configured_budget() -> None:
+    underlying = ScriptedModel([_final_answer(), _final_answer()])
+    model = RecordingModel(underlying, max_model_calls=1)
+    messages = [ChatMessage(role=MessageRole.USER, content="normal execution")]
+
+    model.generate(messages)
+    with pytest.raises(ModelRequestRejected, match="model_call_budget"):
+        model.generate(messages)
+
+    assert model.contract_state == "normal_execution"
+    assert model.model_calls_used == 1
+    assert model.executed_calls == model.succeeded_calls == 1
+    assert underlying.calls == 1
+
+
+@pytest.mark.parametrize(
+    ("mutation", "difference"),
+    [
+        ("model_id", "model_id"),
+        ("tool_schema", "public_tool_schemas"),
+        ("generation", "generation_config"),
+    ],
+)
+def test_persistent_identity_guard_remains_active_after_first_request(
+    tmp_path: Path,
+    mutation: str,
+    difference: str,
+) -> None:
+    _, _, runtime, agent, source_model, stream, _ = _capture(tmp_path)
+    snapshot = AgentStateAdapter.capture(agent)
+    expected = _expected(snapshot, source_model.requests[0], runtime)
+    underlying = ScriptedModel([_final_answer(), _final_answer()])
+    model = RecordingModel(underlying)
+    model.restore_model_calls_used(1)
+    model.expect(expected)
+    messages = agent.write_memory_to_messages()
+    tools = agent.tools_and_managed_agents
+
+    model.generate(messages, tools_to_call_from=tools)
+    if mutation == "model_id":
+        model.model_id = "tampered-model"
+    elif mutation == "generation":
+        model.kwargs["temperature"] = 0.5
+    else:
+        tools = []
+    with pytest.raises(ModelRequestRejected, match=difference):
+        model.generate(messages, tools_to_call_from=tools)
+
+    assert model.first_request_verified
+    assert model.model_calls_used == 2
+    assert model.executed_calls == model.succeeded_calls == 1
+    assert model.requests[-1].difference == difference
+    assert underlying.calls == 1
+    stream.close()
+
+
+def test_missing_response_token_usage_is_not_treated_as_zero() -> None:
+    response = _final_answer()
+    response.token_usage = None
+    underlying = ScriptedModel([response, _final_answer()])
+    model = RecordingModel(underlying, max_model_calls=3)
+    messages = [ChatMessage(role=MessageRole.USER, content="missing token usage")]
+
+    model.generate(messages)
+    with pytest.raises(ModelRequestRejected, match="token_usage_unavailable"):
+        model.generate(messages)
+
+    assert model.model_calls_used == 1
+    assert model.prompt_tokens_observed == model.completion_tokens_observed == 0
+    assert model.requests[0].prompt_tokens is None
+    assert model.requests[0].completion_tokens is None
+    assert underlying.calls == 1
+
+
+def test_resume_contract_and_restored_counter_cannot_be_reinstalled(
+    tmp_path: Path,
+) -> None:
+    _, _, runtime, _, source_model, stream, _ = _capture(tmp_path)
+    expected = ExpectedModelRequest(
+        messages=[],
+        next_model_input_hash=_digest("unused"),
+        public_tool_schemas=[],
+        generation_config=dict(source_model.kwargs),
+        model_id=source_model.model_id,
+        step_number=2,
+        remaining_steps=9,
+        model_calls_used=1,
+        max_model_calls=10,
+        tool_calls_used=runtime.budget.tool_calls_used,
+        max_tool_calls=runtime.budget.max_tool_calls,
+        tokens_used=runtime.budget.tokens_used,
+        max_tokens=runtime.budget.max_tokens,
+        latency_seconds_used=runtime.budget.latency_seconds_used,
+        max_latency_seconds=runtime.budget.max_latency_seconds,
+    )
+    model = RecordingModel(ScriptedModel([_final_answer()]))
+    model.restore_model_calls_used(1)
+    with pytest.raises(ValueError, match="already been restored"):
+        model.restore_model_calls_used(0)
+    model.expect(expected)
+    with pytest.raises(ValueError, match="already installed"):
+        model.expect(expected)
     stream.close()

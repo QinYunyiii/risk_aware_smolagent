@@ -18,6 +18,7 @@ from smolagents.models import ChatMessageStreamDelta
 from smolagents.monitoring import Timing
 
 from .agent_state_adapter import AgentStateAdapter, AgentStateSnapshot
+from .recording_model import RecordingModel
 
 
 SUPPORTED_SMOLAGENTS_VERSION = "1.26.0"
@@ -44,6 +45,10 @@ class CheckpointableToolCallingAgent(ToolCallingAgent):
                 f"found {installed}"
             )
         super().__init__(*args, **kwargs)
+        if isinstance(self.model, RecordingModel):
+            self.model.bind_step_state_provider(
+                lambda: (self.step_number, self.max_steps)
+            )
 
     def restore_snapshot(self, snapshot: AgentStateSnapshot) -> CheckpointableToolCallingAgent:
         AgentStateAdapter.restore(self, snapshot)
@@ -90,6 +95,12 @@ class CheckpointableToolCallingAgent(ToolCallingAgent):
     ) -> Generator[ActionStep | PlanningStep | FinalAnswerStep | ChatMessageStreamDelta, None, None]:
         """Pinned equivalent of ``_run_stream`` starting after the captured step."""
 
+        if not isinstance(self.model, RecordingModel):
+            raise CheckpointResumeError("Resume requires RecordingModel budget enforcement")
+        if not self.model.runtime_state_bound:
+            raise CheckpointResumeError("Resume requires a live RuntimeState budget authority")
+        if not self.model.resume_contract_pending:
+            raise CheckpointResumeError("Resume requires an unconsumed first-request contract")
         completed_step = self.step_number
         if completed_step < 1 or completed_step >= self.max_steps:
             raise CheckpointResumeError("No Agent step budget remains for continuation")

@@ -181,3 +181,11 @@ does not mean B2, B3, B4 or formal risk-data collection is complete.
 
 No commit was requested or created. Changes remain uncommitted on
 `d08ee001ee73d0eaffef72c1a3a380215fc113b7`; no Push was performed.
+
+## Post-Commit Note — 2026-11-21
+
+The Git section above is the accurate point-in-time status when the original Day 4 acceptance
+report was written. The accepted Day 4 files were subsequently committed and pushed as
+`52e97e7b37b3d88b65acbd8cffcad644dff232c1` (`feat: harden checkpoint restore branch isolation`).
+This note does not rewrite the original test results or Gate. Later multi-step resume and deep
+TaskSpec hardening are recorded separately in `b2_day4_post_audit_hardening_report.md`.

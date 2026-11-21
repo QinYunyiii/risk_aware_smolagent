@@ -1,0 +1,121 @@
+{
+  "baseline_commit": "52e97e7b37b3d88b65acbd8cffcad644dff232c1",
+  "commands": [
+    {
+      "command": ".venv/bin/python -m pytest -q --disable-warnings tests/agent/test_checkpointable_agent.py",
+      "duration_seconds": 1.5487191380016156,
+      "exit_code": 0,
+      "failed": 0,
+      "passed": 31,
+      "skipped": 0,
+      "summary": "31 passed in 1.33s"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q --disable-warnings tests/agent/test_multistep_resume.py",
+      "duration_seconds": 0.9464789049998217,
+      "exit_code": 0,
+      "failed": 0,
+      "passed": 5,
+      "skipped": 0,
+      "summary": "5 passed in 0.73s"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q --disable-warnings tests/test_checkpoint_v2_isolation.py",
+      "duration_seconds": 1.1185982700008026,
+      "exit_code": 0,
+      "failed": 0,
+      "passed": 7,
+      "skipped": 0,
+      "summary": "7 passed in 0.94s"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q --disable-warnings tests/agent/",
+      "duration_seconds": 1.9000703569981852,
+      "exit_code": 0,
+      "failed": 0,
+      "passed": 44,
+      "skipped": 0,
+      "summary": "44 passed in 1.67s"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q --disable-warnings tests/test_runtime_state.py",
+      "duration_seconds": 0.16813831599938567,
+      "exit_code": 0,
+      "failed": 0,
+      "passed": 12,
+      "skipped": 0,
+      "summary": "12 passed in 0.01s"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q --disable-warnings tests/test_checkpoint.py",
+      "duration_seconds": 0.6584960040017904,
+      "exit_code": 0,
+      "failed": 0,
+      "passed": 7,
+      "skipped": 0,
+      "summary": "7 passed in 0.46s"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q --disable-warnings tests/test_checkpoint_v2.py",
+      "duration_seconds": 1.5708204319998913,
+      "exit_code": 0,
+      "failed": 0,
+      "passed": 33,
+      "skipped": 0,
+      "summary": "33 passed in 1.38s"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q --disable-warnings tests/test_branching.py",
+      "duration_seconds": 0.8327259290017537,
+      "exit_code": 0,
+      "failed": 0,
+      "passed": 2,
+      "skipped": 0,
+      "summary": "2 passed in 0.65s"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q --disable-warnings",
+      "duration_seconds": 11.607292543998483,
+      "exit_code": 0,
+      "failed": 0,
+      "passed": 180,
+      "skipped": 0,
+      "summary": "180 passed in 11.31s"
+    },
+    {
+      "command": ".venv/bin/python -m compileall -q src tests",
+      "duration_seconds": 0.022582436999073252,
+      "exit_code": 0,
+      "failed": 0,
+      "passed": null,
+      "skipped": 0,
+      "summary": "no output"
+    },
+    {
+      "command": "git diff --check",
+      "duration_seconds": 0.00317038699722616,
+      "exit_code": 0,
+      "failed": 0,
+      "passed": null,
+      "skipped": 0,
+      "summary": "no output"
+    }
+  ],
+  "execution_mode": "local_engineering_test",
+  "formal_experiment": false,
+  "full_suite_failed": 0,
+  "full_suite_passed": 180,
+  "full_suite_skipped": 0,
+  "gpu_used": false,
+  "historical_baseline_passed": 159,
+  "local_run_directory": "runs/phase2_b2_day4_post_audit/20261121T224116+0800",
+  "model_backend": "local_scripted_model",
+  "python_version": "3.12.3",
+  "real_qwen_executed": false,
+  "research_dataset_eligible": false,
+  "run_id": "20261121T224116+0800",
+  "scripted_model_id": "qwen3-8b-local-scripted",
+  "smolagents_version": "1.26.0",
+  "status": "PASS",
+  "tests_deleted": false
+}

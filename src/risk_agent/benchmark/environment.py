@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -22,8 +23,11 @@ class WorkspaceSafetyError(RuntimeError):
 class TaskEnvironment:
     def __init__(self, base_directory: str | Path, task: TaskSpec) -> None:
         self.base_directory = Path(base_directory).expanduser().resolve()
-        self.task = task
-        self.workspace = self.base_directory / task.task_id
+        # TaskSpec is frozen only at the dataclass boundary; nested mappings remain
+        # mutable. Each environment owns a deep copy so restored branches cannot
+        # cross-talk through orders, inventory, expected values or Tool arguments.
+        self.task = copy.deepcopy(task)
+        self.workspace = self.base_directory / self.task.task_id
         self.database_path = self.workspace / "state" / "api.sqlite3"
         self.base_directory.mkdir(parents=True, exist_ok=True)
         if self.workspace.parent != self.base_directory:

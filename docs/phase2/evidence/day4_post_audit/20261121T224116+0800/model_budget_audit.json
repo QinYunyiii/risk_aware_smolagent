@@ -1,0 +1,30 @@
+{
+  "attempted_calls": 2,
+  "baseline_commit": "52e97e7b37b3d88b65acbd8cffcad644dff232c1",
+  "eleventh_delegation_prevented": true,
+  "executed_calls": 1,
+  "execution_mode": "local_engineering_test",
+  "failure_consumed_budget": true,
+  "formal_experiment": false,
+  "gpu_used": false,
+  "local_run_directory": "runs/phase2_b2_day4_post_audit/20261121T224116+0800",
+  "model_backend": "local_scripted_model",
+  "model_calls_used": 10,
+  "next_rejection_reason": "model_call_budget",
+  "prior_model_calls": 9,
+  "provider_calls": 1,
+  "provider_failure_type": "RuntimeError",
+  "python_version": "3.12.3",
+  "real_qwen_executed": false,
+  "rejected_calls": 1,
+  "request_statuses": [
+    "failed",
+    "rejected"
+  ],
+  "research_dataset_eligible": false,
+  "run_id": "20261121T224116+0800",
+  "scripted_model_id": "qwen3-8b-local-scripted",
+  "smolagents_version": "1.26.0",
+  "status": "PASS",
+  "succeeded_calls": 0
+}
