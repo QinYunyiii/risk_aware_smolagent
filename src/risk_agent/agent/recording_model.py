@@ -88,7 +88,9 @@ class RecordingModel(Model):
 
     @property
     def model_calls_used(self) -> int:
-        return self.prior_model_calls + self.succeeded_calls
+        """Requests already delegated to the provider, including failed requests."""
+
+        return self.prior_model_calls + self.executed_calls
 
     def restore_model_calls_used(self, value: int) -> None:
         if self.attempted_calls or self.executed_calls or self.succeeded_calls:

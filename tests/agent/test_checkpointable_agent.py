@@ -19,6 +19,7 @@ from risk_agent.agent import (
     AgentStateAdapter,
     CheckpointableToolCallingAgent,
     ExpectedModelRequest,
+    ModelRequestIntercepted,
     ModelRequestRejected,
     RecordingModel,
 )
@@ -57,6 +58,15 @@ class ScriptedModel(Model):
         if not self.responses:
             raise AssertionError("Unexpected scripted model call")
         return self.responses.pop(0)
+
+
+class FailingModel(ScriptedModel):
+    def __init__(self) -> None:
+        super().__init__([])
+
+    def generate(self, *args, **kwargs) -> ChatMessage:
+        self.calls += 1
+        raise RuntimeError("scripted provider failure")
 
 
 class IncrementTool(Tool):
@@ -309,6 +319,7 @@ def test_capture_boundary_is_after_append_before_next_model_and_close_is_safe(tm
     assert result.status == "checkpoint_captured"
     assert result.model_calls_before == result.model_calls_after == 1
     assert model.attempted_calls == model.succeeded_calls == 1
+    assert model.executed_calls == model.model_calls_used == 1
     assert agent.memory.steps[-1].observations == "counter=1"
     assert runtime.budget.tool_calls_used == 1
     stream.close()
@@ -400,7 +411,11 @@ def test_restored_request_mismatch_is_rejected_before_model_execution(
             agent.write_memory_to_messages(),
             tools_to_call_from=agent.tools_and_managed_agents,
         )
+    assert source_model.attempted_calls == 2
+    assert source_model.rejected_calls == 1
     assert source_model.executed_calls == 1
+    assert source_model.succeeded_calls == 1
+    assert source_model.model_calls_used == 1
     source_stream.close()
     assert captured.snapshot.checkpoint_path.is_dir()
 
@@ -543,4 +558,66 @@ def test_restored_exhausted_model_budget_blocks_before_underlying_request(tmp_pa
             tools_to_call_from=agent.tools_and_managed_agents,
         )
     assert blocked.executed_calls == blocked.succeeded_calls == 0
+    stream.close()
+
+
+def test_failed_underlying_request_consumes_model_call_budget_and_cannot_bypass_limit(
+    tmp_path: Path,
+) -> None:
+    _, _, _, agent, source_model, stream, _ = _capture(tmp_path)
+    snapshot = AgentStateAdapter.capture(agent)
+    expected = replace(
+        _expected(snapshot, source_model.requests[0]),
+        model_calls_used=9,
+        max_model_calls=10,
+    )
+    underlying = FailingModel()
+    model = RecordingModel(underlying)
+    model.restore_model_calls_used(9)
+    model.expect(expected)
+
+    with pytest.raises(RuntimeError, match="scripted provider failure"):
+        model.generate(
+            agent.write_memory_to_messages(),
+            tools_to_call_from=agent.tools_and_managed_agents,
+        )
+    assert model.attempted_calls == 1
+    assert model.executed_calls == 1
+    assert model.succeeded_calls == 0
+    assert model.model_calls_used == 10
+    assert model.requests[-1].status == "failed"
+    assert underlying.calls == 1
+
+    model.expect(replace(expected, model_calls_used=10))
+    with pytest.raises(ModelRequestRejected, match="model_call_budget"):
+        model.generate(
+            agent.write_memory_to_messages(),
+            tools_to_call_from=agent.tools_and_managed_agents,
+        )
+    assert model.attempted_calls == 2
+    assert model.rejected_calls == 1
+    assert model.executed_calls == 1
+    assert model.succeeded_calls == 0
+    assert model.model_calls_used == 10
+    assert underlying.calls == 1
+    stream.close()
+
+
+def test_valid_interception_does_not_consume_model_call_budget(tmp_path: Path) -> None:
+    _, _, _, agent, source_model, stream, _ = _capture(tmp_path)
+    snapshot = AgentStateAdapter.capture(agent)
+    underlying = ScriptedModel([_final_answer()])
+    model = RecordingModel(underlying, intercept_valid_request=True)
+    model.restore_model_calls_used(1)
+    model.expect(_expected(snapshot, source_model.requests[0]))
+    with pytest.raises(ModelRequestIntercepted):
+        model.generate(
+            agent.write_memory_to_messages(),
+            tools_to_call_from=agent.tools_and_managed_agents,
+        )
+    assert model.attempted_calls == 1
+    assert model.executed_calls == model.succeeded_calls == 0
+    assert model.model_calls_used == 1
+    assert model.requests[-1].status == "intercepted"
+    assert underlying.calls == 0
     stream.close()

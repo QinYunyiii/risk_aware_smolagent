@@ -90,14 +90,14 @@ def _file_hash(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _write_json(path: Path, value: Any) -> None:
+def _write_json(path: Path, value: Any, *, sort_keys: bool = True) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
         payload = json.dumps(
             value,
             ensure_ascii=False,
             indent=2,
-            sort_keys=True,
+            sort_keys=sort_keys,
             allow_nan=False,
         )
     except (TypeError, ValueError) as exc:
@@ -588,7 +588,15 @@ def snapshot_v2(
             "tools": "agent/tool_registry.json",
             "next_input": "agent/next_model_input.json",
         }
-        _write_json(staging / agent_paths["state"], agent_state_snapshot.to_dict())
+        # The framework renders tool arguments with insertion-order-sensitive
+        # ``dict`` formatting when reconstructing the next model input.  Keep
+        # the captured order in the authoritative Agent state artifact so a
+        # JSON round trip remains an exact lifecycle restore.
+        _write_json(
+            staging / agent_paths["state"],
+            agent_state_snapshot.to_dict(),
+            sort_keys=False,
+        )
         _write_json(staging / agent_paths["messages"], extracted["messages"])
         _write_json(staging / agent_paths["steps"], extracted["steps"])
         _write_json(staging / agent_paths["latest"], extracted["latest_action"])
