@@ -16,8 +16,11 @@ import httpx2
 import openai
 from smolagents import OpenAIServerModel, Tool, ToolCallingAgent
 
+from risk_agent.monitoring import RuntimeState
 from risk_agent.tools.calculation_tools import CalculatorTool
 
+from .checkpointable_tool_agent import CheckpointableToolCallingAgent
+from .recording_model import RecordingModel
 from .worker_router import RemoteModelSettings, WorkerConfig
 
 
@@ -79,6 +82,36 @@ def _http_client(settings: RemoteModelSettings, ca_bundle: Path) -> httpx2.Clien
         connect=settings.connect_timeout_seconds,
     )
     return httpx2.Client(verify=_ssl_context(ca_bundle), timeout=timeout, trust_env=False)
+
+
+def _create_openai_server_model(
+    settings: RemoteModelSettings,
+    worker: WorkerConfig,
+) -> OpenAIServerModel:
+    """Build the pinned provider client used by all Agent factories.
+
+    The extra identity attributes are deliberately public, non-secret metadata.  They
+    let :class:`RecordingModel` freeze the selected worker and configured model version
+    in its delegated-model fingerprint.
+    """
+
+    http_client = _http_client(settings, settings.resolve_ca_bundle())
+    inference = settings.inference
+    model = OpenAIServerModel(
+        model_id=settings.model_id,
+        api_base=worker.base_url,
+        api_key=settings.resolve_api_key(),
+        client_kwargs={"http_client": http_client, "max_retries": 0},
+        retry=False,
+        seed=int(inference.get("seed", 20261118)),
+        temperature=float(inference.get("temperature", 0.0)),
+        max_tokens=int(inference.get("max_tokens", 256)),
+        extra_body={"chat_template_kwargs": inference.get("chat_template_kwargs", {})},
+    )
+    model.model_version = settings.model_version
+    model.worker_id = worker.worker_id
+    model.endpoint = worker.base_url
+    return model
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,19 +215,7 @@ def create_tool_calling_agent(
     worker: WorkerConfig,
     calculator: CalculatorTool,
 ) -> tuple[ToolCallingAgent, OpenAIServerModel]:
-    http_client = _http_client(settings, settings.resolve_ca_bundle())
-    inference = settings.inference
-    model = OpenAIServerModel(
-        model_id=settings.model_id,
-        api_base=worker.base_url,
-        api_key=settings.resolve_api_key(),
-        client_kwargs={"http_client": http_client, "max_retries": 0},
-        retry=False,
-        seed=int(inference.get("seed", 20261118)),
-        temperature=float(inference.get("temperature", 0.0)),
-        max_tokens=int(inference.get("max_tokens", 256)),
-        extra_body={"chat_template_kwargs": inference.get("chat_template_kwargs", {})},
-    )
+    model = _create_openai_server_model(settings, worker)
     agent = ToolCallingAgent(
         tools=[calculator],
         model=model,
@@ -219,19 +240,7 @@ def create_benchmark_agent(
         raise ValueError("Benchmark agent requires at least one local tool")
     if max_steps < 1:
         raise ValueError("max_steps must be positive")
-    http_client = _http_client(settings, settings.resolve_ca_bundle())
-    inference = settings.inference
-    model = OpenAIServerModel(
-        model_id=settings.model_id,
-        api_base=worker.base_url,
-        api_key=settings.resolve_api_key(),
-        client_kwargs={"http_client": http_client, "max_retries": 0},
-        retry=False,
-        seed=int(inference.get("seed", 20261118)),
-        temperature=float(inference.get("temperature", 0.0)),
-        max_tokens=int(inference.get("max_tokens", 256)),
-        extra_body={"chat_template_kwargs": inference.get("chat_template_kwargs", {})},
-    )
+    model = _create_openai_server_model(settings, worker)
     agent = ToolCallingAgent(
         tools=tools,
         model=model,
@@ -241,6 +250,49 @@ def create_benchmark_agent(
         description="Day 8 MiniToolBench-R agent with local WSL tool execution",
     )
     return agent, model
+
+
+def create_checkpointable_benchmark_agent(
+    settings: RemoteModelSettings,
+    worker: WorkerConfig,
+    tools: list[Tool],
+    runtime_state: RuntimeState,
+    *,
+    max_steps: int,
+    max_model_calls: int,
+    agent_name: str,
+) -> tuple[CheckpointableToolCallingAgent, RecordingModel, OpenAIServerModel]:
+    """Create the frozen Day 5 provider -> recorder -> Agent wiring.
+
+    The worker is selected by the caller and remains part of the immutable provider
+    fingerprint.  This function intentionally does not route or fail over.
+    """
+
+    if not tools:
+        raise ValueError("Checkpointable benchmark agent requires at least one local tool")
+    if max_steps < 2:
+        raise ValueError("Checkpointable benchmark agent requires at least two steps")
+    if max_model_calls < 2:
+        raise ValueError("Checkpointable benchmark agent requires at least two model calls")
+    underlying = _create_openai_server_model(settings, worker)
+    try:
+        recording = RecordingModel(
+            underlying,
+            runtime_state=runtime_state,
+            max_model_calls=max_model_calls,
+        )
+        agent = CheckpointableToolCallingAgent(
+            tools=tools,
+            model=recording,
+            max_steps=max_steps,
+            verbosity_level=0,
+            name=agent_name,
+            description="B2 Day 5 Qwen checkpoint/restore Agent with local benchmark tools",
+        )
+    except Exception:
+        underlying.client.close()
+        raise
+    return agent, recording, underlying
 
 
 def run_calculator_agent(

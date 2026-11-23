@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from importlib.metadata import version
 from typing import Any, Generator
 
@@ -15,7 +16,7 @@ from smolagents.agents import (
     handle_agent_output_types,
 )
 from smolagents.memory import ActionStep, FinalAnswerStep, PlanningStep, ToolCall
-from smolagents.models import ChatMessageStreamDelta
+from smolagents.models import ChatMessage, ChatMessageStreamDelta
 from smolagents.monitoring import Timing
 
 from risk_agent.monitoring import agent_tool_call_precounted
@@ -29,6 +30,14 @@ SUPPORTED_SMOLAGENTS_VERSION = "1.26.0"
 
 class CheckpointResumeError(RuntimeError):
     """Raised when the installed framework cannot honor the pinned resume contract."""
+
+
+@dataclass(frozen=True, slots=True)
+class ControlledModelResponse:
+    """One restored provider response stopped before Tool Call processing."""
+
+    step_number: int
+    message: ChatMessage
 
 
 class CheckpointableToolCallingAgent(ToolCallingAgent):
@@ -128,6 +137,45 @@ class CheckpointableToolCallingAgent(ToolCallingAgent):
             raise CheckpointResumeError("Resume did not produce a FinalAnswerStep")
         return events[-1].output
 
+    def request_next_model_response(self) -> ControlledModelResponse:
+        """Delegate exactly the first restored request and stop before any tool runs.
+
+        This is the Day 5 acceptance boundary.  It intentionally does not parse or
+        execute returned Tool Calls and does not append a partially executed ActionStep
+        to memory.  The provider response remains available to the caller as evidence,
+        while ``RecordingModel`` remains authoritative for input, Usage, latency and
+        Model Call accounting.
+        """
+
+        if not self.task or not self.memory.steps:
+            raise CheckpointResumeError(
+                "Controlled request requires restored task and memory state"
+            )
+        if not isinstance(self.model, RecordingModel):
+            raise CheckpointResumeError("Controlled request requires RecordingModel")
+        if not self.model.runtime_state_bound:
+            raise CheckpointResumeError(
+                "Controlled request requires a live RuntimeState budget authority"
+            )
+        if not self.model.resume_contract_pending:
+            raise CheckpointResumeError(
+                "Controlled request requires an unconsumed first-request contract"
+            )
+        completed_step = self.step_number
+        if completed_step < 1 or completed_step >= self.max_steps:
+            raise CheckpointResumeError("No Agent step budget remains for controlled request")
+        if getattr(self, "interrupt_switch", False):
+            raise CheckpointResumeError("Agent was interrupted before controlled request")
+
+        self.step_number = completed_step + 1
+        messages = self.write_memory_to_messages()
+        response = self.model.generate(
+            messages,
+            stop_sequences=["Observation:", "Calling tools:"],
+            tools_to_call_from=self.tools_and_managed_agents,
+        )
+        return ControlledModelResponse(step_number=self.step_number, message=response)
+
     def _resume_stream(
         self,
     ) -> Generator[ActionStep | PlanningStep | FinalAnswerStep | ChatMessageStreamDelta, None, None]:
@@ -206,5 +254,6 @@ class CheckpointableToolCallingAgent(ToolCallingAgent):
 __all__ = [
     "CheckpointResumeError",
     "CheckpointableToolCallingAgent",
+    "ControlledModelResponse",
     "SUPPORTED_SMOLAGENTS_VERSION",
 ]

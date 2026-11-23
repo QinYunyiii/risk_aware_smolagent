@@ -10,6 +10,7 @@ from .agent_state_adapter import (
 from .checkpointable_tool_agent import (
     CheckpointResumeError,
     CheckpointableToolCallingAgent,
+    ControlledModelResponse,
     SUPPORTED_SMOLAGENTS_VERSION,
 )
 from .recording_model import (
@@ -30,6 +31,7 @@ __all__ = [
     "AgentStateSnapshot",
     "CheckpointResumeError",
     "CheckpointableToolCallingAgent",
+    "ControlledModelResponse",
     "ExpectedModelRequest",
     "ModelRequestIntercepted",
     "ModelRequestRejected",

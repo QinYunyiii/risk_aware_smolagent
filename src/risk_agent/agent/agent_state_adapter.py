@@ -166,7 +166,10 @@ def serialize_chat_message(message: ChatMessage) -> dict[str, Any]:
     """
 
     return {
-        "role": message.role.value,
+        # OpenAI SDK-backed smolagents responses currently carry a plain role string,
+        # while framework-created memory messages use ``MessageRole``.  Both represent
+        # the same public ChatMessage contract and must canonicalize identically.
+        "role": message.role.value if isinstance(message.role, MessageRole) else str(message.role),
         "content": _encode(message.content),
         "tool_calls": [
             {

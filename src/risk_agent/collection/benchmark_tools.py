@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import itertools
 import platform
 from dataclasses import dataclass
 from typing import Any, Mapping
@@ -133,7 +132,7 @@ class LocalBenchmarkTool(Tool):
         self.registry = registry
         self.monitor = monitor
         self.checkpoint_id = checkpoint_id
-        self._steps = itertools.count(1)
+        self._next_step_index = 1
         self.execution_location = (
             "local_wsl" if "microsoft" in platform.release().lower() else "local_python"
         )
@@ -145,7 +144,8 @@ class LocalBenchmarkTool(Tool):
                 raise TypeError(f"{self.name} requires named inputs {tuple(self.inputs)}")
             kwargs = dict(zip(self.inputs, args, strict=True))
         arguments = dict(kwargs)
-        step_id = f"agent_tool_{next(self._steps):03d}"
+        step_id = f"agent_tool_{self._next_step_index:03d}"
+        self._next_step_index += 1
         return self.monitor.execute_tool(
             step_id=step_id,
             tool_name=self.name,
@@ -154,6 +154,19 @@ class LocalBenchmarkTool(Tool):
             checkpoint_id=self.checkpoint_id,
             call=lambda: self.registry.execute(self.domain, self.name, arguments),
         )
+
+    def checkpoint_state(self) -> dict[str, int]:
+        """Return the future-call cursor required for deterministic restore."""
+
+        return {"next_step_index": self._next_step_index}
+
+    def restore_checkpoint_state(self, state: Mapping[str, Any]) -> None:
+        if set(state) != {"next_step_index"}:
+            raise ValueError(f"Invalid adapter state for {self.name}")
+        value = state["next_step_index"]
+        if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+            raise ValueError(f"Invalid next_step_index for {self.name}")
+        self._next_step_index = value
 
 
 def create_local_domain_tools(
@@ -171,3 +184,25 @@ def create_local_domain_tools(
         )
         for tool_name in DOMAIN_TOOL_NAMES[environment.task.domain]
     ]
+
+
+def capture_local_tool_adapter_state(
+    tools: list[LocalBenchmarkTool],
+) -> dict[str, dict[str, int]]:
+    """Capture every local adapter cursor without serializing live tool objects."""
+
+    return {tool.name: tool.checkpoint_state() for tool in tools}
+
+
+def restore_local_tool_adapter_state(
+    tools: list[LocalBenchmarkTool],
+    state: Mapping[str, Any],
+) -> None:
+    by_name = {tool.name: tool for tool in tools}
+    if set(state) != set(by_name):
+        raise ValueError("Restored local tool adapter names differ from live tools")
+    for name, tool in by_name.items():
+        value = state[name]
+        if not isinstance(value, Mapping):
+            raise ValueError(f"Invalid adapter state for {name}")
+        tool.restore_checkpoint_state(value)
