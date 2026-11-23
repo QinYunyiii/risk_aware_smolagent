@@ -11,7 +11,7 @@ import json
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 from smolagents.memory import ActionStep
 
@@ -33,6 +33,7 @@ from risk_agent.checkpoint import (
     EnvironmentCheckpointMetadata,
     RuntimeCheckpointMetadata,
 )
+from risk_agent.faults import FaultConfig, FaultInjector
 from risk_agent.monitoring import BudgetState, ExecutionMonitor, JsonlTraceWriter, RuntimeState
 
 from .benchmark_tools import (
@@ -190,6 +191,8 @@ class Day5GateRunner:
         catalog_hash: str,
         split_hash: str,
         verifier_content_hash: str,
+        experiment_id: str = EXPERIMENT_ID,
+        research_flags: Mapping[str, Any] = RUN_RESEARCH_FLAGS,
     ) -> None:
         self.settings = settings
         self.run_directory = Path(run_directory).resolve()
@@ -197,6 +200,8 @@ class Day5GateRunner:
         self.catalog_hash = catalog_hash
         self.split_hash = split_hash
         self.verifier_content_hash = verifier_content_hash
+        self.experiment_id = experiment_id
+        self.research_flags = dict(research_flags)
         self.tool_writer = JsonlTraceWriter(self.run_directory / "tool_trajectories.jsonl")
         self.manager = CheckpointManager(self.run_directory / "checkpoints")
 
@@ -212,7 +217,7 @@ class Day5GateRunner:
         return ExecutionMonitor(
             writer=self.tool_writer,
             runtime_state=runtime,
-            experiment_id=EXPERIMENT_ID,
+            experiment_id=self.experiment_id,
             run_id=self.run_id,
             task_id=task.task_id,
             template_id=task.template_id,
@@ -227,7 +232,7 @@ class Day5GateRunner:
                 "protocol_id": PROTOCOL_ID,
                 "task_run_id": task_run_id,
                 "split": task.split.value if task.split is not None else None,
-                **RUN_RESEARCH_FLAGS,
+                **self.research_flags,
             },
         )
 
@@ -238,7 +243,7 @@ class Day5GateRunner:
         worker: WorkerConfig,
     ) -> CheckpointIdentityV2:
         return CheckpointIdentityV2(
-            experiment_id=EXPERIMENT_ID,
+            experiment_id=self.experiment_id,
             run_id=self.run_id,
             task_run_id=task_run_id,
             model_version=self.settings.model_version,
@@ -260,6 +265,7 @@ class Day5GateRunner:
         runtime: RuntimeState,
         model: Any,
         tools: list[LocalBenchmarkTool],
+        fault_injector: FaultInjector | None = None,
     ) -> RuntimeCheckpointMetadata:
         return RuntimeCheckpointMetadata(
             max_model_calls=10,
@@ -274,9 +280,16 @@ class Day5GateRunner:
                 AdapterStateStatus.STATEFUL,
                 {"tools": capture_local_tool_adapter_state(tools)},
             ),
-            fault_adapter_state=AdapterStateMetadata(
-                AdapterStateStatus.NOT_INSTANTIATED,
-                None,
+            fault_adapter_state=(
+                AdapterStateMetadata(
+                    AdapterStateStatus.STATEFUL,
+                    fault_injector.checkpoint_state(),
+                )
+                if fault_injector is not None
+                else AdapterStateMetadata(
+                    AdapterStateStatus.NOT_INSTANTIATED,
+                    None,
+                )
             ),
             phase="after_tool_observation_before_model_generation",
             next_operation="model_generation",
@@ -311,6 +324,7 @@ class Day5GateRunner:
         task: TaskSpec,
         worker: WorkerConfig,
         attempt_index: int,
+        fault_config: FaultConfig | None = None,
     ) -> dict[str, Any]:
         if task.split is not DataSplit.TRAIN:
             raise ValueError("Day 5 acceptance candidates must be Train tasks")
@@ -327,7 +341,13 @@ class Day5GateRunner:
         runtime = RuntimeState(
             seed=task.seed,
             agent_memory=[],
-            tool_state={"protocol_id": PROTOCOL_ID},
+            tool_state={
+                "protocol_id": PROTOCOL_ID,
+                "fault_id": fault_config.fault_id if fault_config is not None else None,
+                "fault_type": (
+                    fault_config.fault_type.value if fault_config is not None else None
+                ),
+            },
             budget=BudgetState(50_000, 12, 900.0),
         )
         source_monitor = self._monitor(
@@ -337,9 +357,13 @@ class Day5GateRunner:
             task_run_id=task_run_id,
             environment_id=f"source:{task_run_id}",
         )
+        source_fault_injector = (
+            FaultInjector(fault_config) if fault_config is not None else None
+        )
         source_tools = create_local_domain_tools(
             environment=source_environment,
             monitor=source_monitor,
+            fault_injector=source_fault_injector,
         )
         source_agent, source_model, source_underlying = create_checkpointable_benchmark_agent(
             self.settings,
@@ -372,6 +396,7 @@ class Day5GateRunner:
                         runtime=runtime,
                         model=source_model,
                         tools=source_tools,
+                        fault_injector=source_fault_injector,
                     ),
                     environment_metadata=self._environment_metadata(
                         runtime=runtime,
@@ -426,9 +451,22 @@ class Day5GateRunner:
             task_run_id=task_run_id,
             environment_id=f"restore:{task_run_id}",
         )
+        restored_fault_injector = (
+            FaultInjector(fault_config) if fault_config is not None else None
+        )
+        if restored_fault_injector is not None:
+            fault_document = json.loads(
+                (captured.snapshot.checkpoint_path / "runtime/fault_adapter_state.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            if fault_document.get("status") != AdapterStateStatus.STATEFUL.value:
+                raise RuntimeError("B4 fault adapter state is absent from Checkpoint")
+            restored_fault_injector.restore_checkpoint_state(fault_document["state"])
         restored_tools = create_local_domain_tools(
             environment=restored_environment,
             monitor=restored_monitor,
+            fault_injector=restored_fault_injector,
         )
         adapter_document = json.loads(
             (captured.snapshot.checkpoint_path / "runtime/tool_adapter_state.json").read_text(
@@ -542,6 +580,7 @@ class Day5GateRunner:
                 "completion_tokens": captured.snapshot.manifest.runtime_state[
                     "budget_state"
                 ]["completion_tokens_used"],
+                "latency_seconds": source_model.requests[0].latency_seconds,
             },
             "controlled_response": serialize_chat_message(controlled.message),
             "controlled_request_usage": {
@@ -549,9 +588,36 @@ class Day5GateRunner:
                 "completion_tokens": actual_request.completion_tokens,
                 "latency_seconds": actual_request.latency_seconds,
             },
+            "remaining_budget_at_checkpoint": {
+                "model_calls": int(budget["max_model_calls"])
+                - int(budget["model_calls_used"]),
+                "tool_calls": int(budget["max_tool_calls"])
+                - int(budget["tool_calls_used"]),
+                "tokens": (
+                    int(budget["max_tokens"])
+                    - int(budget["prompt_tokens_used"])
+                    - int(budget["completion_tokens_used"])
+                    if budget["prompt_tokens_used"] is not None
+                    and budget["completion_tokens_used"] is not None
+                    else None
+                ),
+                "latency_seconds": float(budget["max_latency_seconds"])
+                - float(budget["latency_seconds_used"]),
+            },
             "outcome_status": "real_qwen_request_completed",
             "passed": input_match and all(hashes_match.values()),
-            **RUN_RESEARCH_FLAGS,
+            "fault_id": fault_config.fault_id if fault_config is not None else None,
+            "fault_type": fault_config.fault_type.value if fault_config is not None else None,
+            "fault_triggered": bool(
+                source_fault_injector is not None
+                and any(event.triggered for event in source_fault_injector.events)
+            ),
+            "fault_events": (
+                [event.to_dict() for event in source_fault_injector.events]
+                if source_fault_injector is not None
+                else []
+            ),
+            **self.research_flags,
         }
 
 

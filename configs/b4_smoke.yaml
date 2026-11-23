@@ -1,0 +1,101 @@
+version: 1
+protocol_id: risk-continue-v2.0.0
+experiment_id: b4_model_backed_smoke_gate
+catalog_source: configs/task_templates.yaml
+catalog_sha256: 8a76a5c2b5d826832f2c604477c606d699a19a8ceee35b923cedc336b9e9d775
+checkpoint_trigger: first_eligible_nonterminal_tool_observation
+minimum_valid_primary_checkpoints: 5
+minimum_complete_continue_chains: 5
+formal_experiment: false
+execution_mode: model_backed_smoke
+controller_type: qwen3_model
+research_dataset_eligible: false
+exclude_from_formal_datasets: true
+
+tasks:
+  - task_id: data_filter_category_eq_001
+    fault_id: b4_data_f0
+    fault_type: F0_NO_FAULT
+    target_tool: filter_data
+    call_indices: []
+    parameters: {}
+    complete_continue: true
+
+  - task_id: data_aggregate_units_sum_001
+    fault_id: b4_data_f3
+    fault_type: F3_INVALID_ARGUMENT
+    target_tool: aggregate_data
+    call_indices: [1]
+    parameters: {}
+    complete_continue: true
+
+  - task_id: file_list_project_tree_001
+    fault_id: b4_file_f0
+    fault_type: F0_NO_FAULT
+    target_tool: list_files
+    call_indices: []
+    parameters: {}
+    complete_continue: true
+
+  - task_id: file_search_project_code_001
+    fault_id: b4_file_f1
+    fault_type: F1_TIMEOUT
+    target_tool: search_files
+    call_indices: [1]
+    parameters:
+      commit_status: unknown
+    complete_continue: true
+
+  - task_id: api_inventory_primary_001
+    fault_id: b4_api_f2
+    fault_type: F2_API_503
+    target_tool: query_inventory
+    call_indices: [1]
+    parameters: {}
+    complete_continue: true
+
+  - task_id: api_order_pending_read_001
+    fault_id: b4_api_f4
+    fault_type: F4_STALE_OBSERVATION
+    target_tool: get_order
+    call_indices: [1]
+    parameters:
+      stale_result:
+        order_id: order-73041
+        status: processing
+        version: 0
+    complete_continue: true
+
+  - task_id: api_order_start_processing_001
+    fault_id: b4_api_f6_committed
+    fault_type: F6_PARTIAL_FAILURE
+    target_tool: update_order
+    call_indices: [1]
+    parameters:
+      commit: true
+    complete_continue: true
+
+  - task_id: api_order_start_processing_002
+    fault_id: b4_api_f6_not_committed
+    fault_type: F6_PARTIAL_FAILURE
+    target_tool: update_order
+    call_indices: [1]
+    parameters:
+      commit: false
+    complete_continue: true
+
+  - task_id: logic_calculate_addition_001
+    fault_id: b4_logic_f3
+    fault_type: F3_INVALID_ARGUMENT
+    target_tool: calculator
+    call_indices: [1]
+    parameters: {}
+    complete_continue: true
+
+  - task_id: logic_convert_metres_kilometres_001
+    fault_id: b4_logic_f0
+    fault_type: F0_NO_FAULT
+    target_tool: unit_converter
+    call_indices: []
+    parameters: {}
+    complete_continue: true

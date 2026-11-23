@@ -7,7 +7,7 @@ import json
 import random
 import uuid
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
 from typing import Any
 
@@ -53,6 +53,92 @@ class FaultInjector:
         self._call_counts: dict[str, int] = defaultdict(int)
         self._last_results: dict[str, Any] = {}
         self._random = random.Random(config.seed)
+
+    @staticmethod
+    def _json_copy(value: Any) -> Any:
+        return json.loads(json.dumps(value, ensure_ascii=False, sort_keys=True))
+
+    @staticmethod
+    def _tuple_tree(value: Any) -> Any:
+        if isinstance(value, list):
+            return tuple(FaultInjector._tuple_tree(item) for item in value)
+        return value
+
+    def checkpoint_state(self) -> dict[str, Any]:
+        """Capture all future-behaviour state required by a restored adapter."""
+
+        return {
+            "fault_identity": {
+                "fault_id": self.config.fault_id,
+                "fault_type": self.config.fault_type.value,
+                "seed": self.config.seed,
+                "target_tool": self.config.target_tool,
+                "call_indices": list(self.config.call_indices),
+                "probability": self.config.probability,
+                "parameters": self._json_copy(dict(self.config.parameters)),
+            },
+            "call_counts": dict(sorted(self._call_counts.items())),
+            "last_results": self._json_copy(self._last_results),
+            "events": [event.to_dict() for event in self.events],
+            "random_state": self._json_copy(self._random.getstate()),
+        }
+
+    def restore_checkpoint_state(self, state: Mapping[str, Any]) -> None:
+        """Restore state only when it belongs to this exact fault configuration."""
+
+        value = self._json_copy(dict(state))
+        expected_identity = self.checkpoint_state()["fault_identity"]
+        if value.get("fault_identity") != expected_identity:
+            raise ValueError("Restored fault adapter identity differs from live configuration")
+        call_counts = value.get("call_counts")
+        last_results = value.get("last_results")
+        events = value.get("events")
+        random_state = value.get("random_state")
+        if (
+            not isinstance(call_counts, dict)
+            or not isinstance(last_results, dict)
+            or not isinstance(events, list)
+        ):
+            raise ValueError("Malformed fault adapter state")
+        normalized_counts: dict[str, int] = {}
+        for tool_name, count in call_counts.items():
+            if not isinstance(tool_name, str) or isinstance(count, bool) or not isinstance(count, int):
+                raise ValueError("Malformed fault adapter call counter")
+            if count < 0:
+                raise ValueError("Fault adapter call counters must be non-negative")
+            normalized_counts[tool_name] = count
+        try:
+            self._random.setstate(self._tuple_tree(random_state))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Malformed fault adapter random state") from exc
+        self._call_counts = defaultdict(int, normalized_counts)
+        self._last_results = dict(last_results)
+        try:
+            self.events = [
+                FaultEvent(
+                    event_id=str(item["event_id"]),
+                    fault_id=str(item["fault_id"]),
+                    fault_type=FaultType(str(item["fault_type"])),
+                    seed=int(item["seed"]),
+                    tool_name=str(item["tool_name"]),
+                    call_index=int(item["call_index"]),
+                    triggered=bool(item["triggered"]),
+                    phase=str(item["phase"]),
+                    commit_status=CommitStatus(str(item["commit_status"])),
+                    response_received=bool(item["response_received"]),
+                    error_type=(
+                        str(item["error_type"])
+                        if item.get("error_type") is not None
+                        else None
+                    ),
+                    arguments_hash=str(item["arguments_hash"]),
+                    timestamp=str(item["timestamp"]),
+                )
+                for raw in events
+                for item in [dict(raw)]
+            ]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError("Malformed fault adapter event history") from exc
 
     @staticmethod
     def _arguments_hash(arguments: dict[str, Any]) -> str:

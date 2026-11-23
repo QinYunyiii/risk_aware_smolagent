@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import platform
 from dataclasses import dataclass
 from typing import Any, Mapping
@@ -10,6 +11,7 @@ from smolagents import Tool
 
 from risk_agent.benchmark import TaskEnvironment
 from risk_agent.benchmark.schema import Domain
+from risk_agent.faults import FaultInjector, InjectedFaultError, describe_operation
 from risk_agent.monitoring import ExecutionMonitor
 from risk_agent.tools.task_tool_registry import TaskToolRegistry
 
@@ -18,6 +20,21 @@ from risk_agent.tools.task_tool_registry import TaskToolRegistry
 class ToolDefinition:
     description: str
     inputs: Mapping[str, Mapping[str, str]]
+
+
+class CompletedToolReplayError(RuntimeError):
+    """A restored branch tried to replay an already completed source call."""
+
+
+def canonical_tool_call_signature(tool_name: str, arguments: Mapping[str, Any]) -> str:
+    """Return the stable signature used by the B3 source-call replay guard."""
+
+    return json.dumps(
+        {"tool_name": tool_name, "arguments": dict(arguments)},
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
 
 
 TOOL_DEFINITIONS: dict[str, ToolDefinition] = {
@@ -123,6 +140,8 @@ class LocalBenchmarkTool(Tool):
         registry: TaskToolRegistry,
         monitor: ExecutionMonitor,
         checkpoint_id: str | None = None,
+        prohibited_call_signatures: frozenset[str] = frozenset(),
+        fault_injector: FaultInjector | None = None,
     ) -> None:
         definition = TOOL_DEFINITIONS[tool_name]
         self.name = tool_name
@@ -132,6 +151,8 @@ class LocalBenchmarkTool(Tool):
         self.registry = registry
         self.monitor = monitor
         self.checkpoint_id = checkpoint_id
+        self.prohibited_call_signatures = prohibited_call_signatures
+        self.fault_injector = fault_injector
         self._next_step_index = 1
         self.execution_location = (
             "local_wsl" if "microsoft" in platform.release().lower() else "local_python"
@@ -144,16 +165,49 @@ class LocalBenchmarkTool(Tool):
                 raise TypeError(f"{self.name} requires named inputs {tuple(self.inputs)}")
             kwargs = dict(zip(self.inputs, args, strict=True))
         arguments = dict(kwargs)
+        signature = canonical_tool_call_signature(self.name, arguments)
+        if signature in self.prohibited_call_signatures:
+            raise CompletedToolReplayError(
+                "checkpoint_resume_replay_detected: "
+                f"{self.name} already completed before checkpoint capture"
+            )
         step_id = f"agent_tool_{self._next_step_index:03d}"
         self._next_step_index += 1
-        return self.monitor.execute_tool(
-            step_id=step_id,
-            tool_name=self.name,
-            arguments=arguments,
-            token_usage={"total_tokens": 0},
-            checkpoint_id=self.checkpoint_id,
-            call=lambda: self.registry.execute(self.domain, self.name, arguments),
-        )
+        self.monitor.runtime_state.tool_state["pending_operation"] = {
+            "tool_name": self.name,
+            "arguments": arguments,
+            "read_only": describe_operation(self.name, arguments).read_only,
+        }
+
+        def call() -> Any:
+            underlying = lambda: self.registry.execute(self.domain, self.name, arguments)
+            if self.fault_injector is None:
+                return underlying()
+            return self.fault_injector.execute(
+                describe_operation(self.name, arguments),
+                arguments,
+                underlying,
+            )
+
+        try:
+            result = self.monitor.execute_tool(
+                step_id=step_id,
+                tool_name=self.name,
+                arguments=arguments,
+                token_usage={"total_tokens": 0},
+                checkpoint_id=self.checkpoint_id,
+                call=call,
+            )
+        except InjectedFaultError as exc:
+            event = exc.event.to_dict()
+            self.monitor.runtime_state.tool_state["latest_fault_event"] = event
+            self.monitor.runtime_state.tool_state["last_failure"] = event
+            raise
+        if self.fault_injector is not None and self.fault_injector.events:
+            self.monitor.runtime_state.tool_state["latest_fault_event"] = (
+                self.fault_injector.events[-1].to_dict()
+            )
+        return result
 
     def checkpoint_state(self) -> dict[str, int]:
         """Return the future-call cursor required for deterministic restore."""
@@ -173,6 +227,9 @@ def create_local_domain_tools(
     *,
     environment: TaskEnvironment,
     monitor: ExecutionMonitor,
+    checkpoint_id: str | None = None,
+    prohibited_call_signatures: frozenset[str] = frozenset(),
+    fault_injector: FaultInjector | None = None,
 ) -> list[LocalBenchmarkTool]:
     registry = TaskToolRegistry(environment)
     return [
@@ -181,6 +238,9 @@ def create_local_domain_tools(
             domain=environment.task.domain,
             registry=registry,
             monitor=monitor,
+            checkpoint_id=checkpoint_id,
+            prohibited_call_signatures=prohibited_call_signatures,
+            fault_injector=fault_injector,
         )
         for tool_name in DOMAIN_TOOL_NAMES[environment.task.domain]
     ]
