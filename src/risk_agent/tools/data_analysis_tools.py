@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import csv
 from collections import defaultdict
+from collections.abc import Mapping
 from decimal import Decimal, InvalidOperation
+from typing import Any
 
 from risk_agent.benchmark.environment import TaskEnvironment
 
@@ -44,7 +46,16 @@ class DataAnalysisTools:
         operator: str,
         value: str,
     ) -> list[dict[str, str]]:
-        rows = self.read_csv(path)
+        return self.filter_records(self.read_csv(path), column, operator, value)
+
+    def filter_records(
+        self,
+        records: list[Mapping[str, Any]],
+        column: str,
+        operator: str,
+        value: str,
+    ) -> list[dict[str, Any]]:
+        rows = [dict(record) for record in records]
         if rows and column not in rows[0]:
             raise DataAnalysisError(f"Unknown column: {column}")
         if operator == "eq":
@@ -60,7 +71,7 @@ class DataAnalysisTools:
             predicate = predicates[operator]
         else:
             raise DataAnalysisError(f"Unsupported filter operator: {operator}")
-        return [row for row in rows if predicate(row[column])]
+        return [row for row in rows if predicate(str(row[column]))]
 
     def aggregate_data(
         self,
@@ -69,12 +80,23 @@ class DataAnalysisTools:
         value_column: str,
         operation: str,
     ) -> dict[str, float | int]:
-        rows = self.read_csv(path)
+        return self.aggregate_records(
+            self.read_csv(path), group_by, value_column, operation
+        )
+
+    def aggregate_records(
+        self,
+        records: list[Mapping[str, Any]],
+        group_by: str,
+        value_column: str,
+        operation: str,
+    ) -> dict[str, float | int]:
+        rows = [dict(record) for record in records]
         if rows and (group_by not in rows[0] or value_column not in rows[0]):
             raise DataAnalysisError("Unknown group or value column")
         values: dict[str, list[Decimal]] = defaultdict(list)
         for row in rows:
-            values[row[group_by]].append(_decimal(row[value_column]))
+            values[str(row[group_by])].append(_decimal(str(row[value_column])))
         result: dict[str, float | int] = {}
         for key in sorted(values):
             group = values[key]

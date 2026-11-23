@@ -10,6 +10,7 @@ from risk_agent.tools.task_tool_registry import TaskToolRegistry
 
 from .environment import TaskEnvironment
 from .schema import TaskSpec
+from .step_references import resolve_step_value
 from .verifier import DeterministicVerifier
 
 
@@ -44,8 +45,13 @@ class ReferenceTaskRunner:
         initial_hash = environment.reset()
         registry = TaskToolRegistry(environment)
         result: Any = None
-        for step in task.reference_steps:
-            result = registry.execute(task.domain, step.tool, dict(step.arguments))
+        outputs: dict[str, Any] = {}
+        for index, step in enumerate(task.reference_steps, start=1):
+            arguments = resolve_step_value(step.arguments, outputs)
+            if not isinstance(arguments, dict):
+                raise ValueError("Resolved tool arguments must be a mapping")
+            result = registry.execute(task.domain, step.tool, arguments)
+            outputs[f"step_{index}"] = result
         validation = self.verifier.verify(task, environment, result)
         restored_hash = environment.reset()
         return TaskRunResult(

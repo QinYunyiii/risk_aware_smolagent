@@ -26,9 +26,12 @@ class TaskToolRegistry:
         self._tools: dict[str, tuple[Domain, Callable[..., Any]]] = {
             "read_csv": (Domain.DATA_ANALYSIS, data.read_csv),
             "filter_data": (Domain.DATA_ANALYSIS, data.filter_data),
+            "filter_records": (Domain.DATA_ANALYSIS, data.filter_records),
             "aggregate_data": (Domain.DATA_ANALYSIS, data.aggregate_data),
+            "aggregate_records": (Domain.DATA_ANALYSIS, data.aggregate_records),
             "list_files": (Domain.FILE_RETRIEVAL, files.list_files),
             "search_files": (Domain.FILE_RETRIEVAL, files.search_files),
+            "search_paths": (Domain.FILE_RETRIEVAL, files.search_paths),
             "read_file": (Domain.FILE_RETRIEVAL, files.read_file),
             "query_inventory": (Domain.API_WORKFLOW, api.query_inventory),
             "get_order": (Domain.API_WORKFLOW, api.get_order),

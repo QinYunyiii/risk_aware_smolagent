@@ -77,10 +77,23 @@ class FaultConfig:
             not self.call_indices or min(self.call_indices) < 2
         ):
             raise ValueError("F5 requires an explicit call index of 2 or greater")
-        if self.fault_type == FaultType.F6_PARTIAL_FAILURE and not isinstance(
-            self.parameters.get("commit", True), bool
-        ):
-            raise ValueError("F6 commit must be boolean")
+        if self.fault_type == FaultType.F6_PARTIAL_FAILURE:
+            commit = self.parameters.get("commit", True)
+            if not isinstance(commit, bool):
+                raise ValueError("F6 commit must be boolean")
+            raw_status = self.parameters.get("commit_status")
+            if raw_status is not None:
+                status = CommitStatus(str(raw_status))
+                if status not in {
+                    CommitStatus.COMMITTED,
+                    CommitStatus.NOT_COMMITTED,
+                    CommitStatus.UNKNOWN,
+                }:
+                    raise ValueError("F6 commit_status must be committed, not_committed, or unknown")
+                if status == CommitStatus.COMMITTED and not commit:
+                    raise ValueError("F6 committed status requires commit=true")
+                if status == CommitStatus.NOT_COMMITTED and commit:
+                    raise ValueError("F6 not_committed status requires commit=false")
 
 
 @dataclass(frozen=True, slots=True)

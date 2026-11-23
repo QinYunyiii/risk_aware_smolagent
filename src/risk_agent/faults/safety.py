@@ -82,7 +82,13 @@ class RetrySafetyEvaluator:
                 reason="Another identical action would continue the no-progress loop",
             )
         if event.fault_type == FaultType.F6_PARTIAL_FAILURE:
-            safe = event.commit_status in {CommitStatus.NOT_STARTED, CommitStatus.NOT_COMMITTED}
+            known_uncommitted = event.commit_status in {
+                CommitStatus.NOT_STARTED,
+                CommitStatus.NOT_COMMITTED,
+            }
+            safe = known_uncommitted and (
+                operation.read_only or operation.idempotency_key_present
+            )
             return SafetyDecision(
                 requested_action=Action.RETRY,
                 action_applicable=True,
@@ -90,9 +96,13 @@ class RetrySafetyEvaluator:
                 recommended_action=Action.RETRY if safe else Action.REPLAN,
                 requires_state_check=not safe,
                 reason=(
-                    "The operation is known not to have committed"
+                    "The operation is known not to have committed and is idempotent"
                     if safe
-                    else "Partial failure committed or is uncertain; verify state before retry"
+                    else (
+                        "Known uncommitted write lacks an idempotency key"
+                        if known_uncommitted
+                        else "Partial failure committed or is uncertain; verify state before retry"
+                    )
                 ),
             )
         raise AssertionError(f"Unhandled fault type: {event.fault_type}")

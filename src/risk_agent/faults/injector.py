@@ -243,7 +243,7 @@ class FaultInjector:
                 response_received=False,
                 error_type="InjectedTimeoutError",
             )
-            raise InjectedTimeoutError("Injected timeout", event)
+            raise InjectedTimeoutError("Tool request timed out", event)
         if fault_type == FaultType.F2_API_503:
             event = self._event(
                 operation,
@@ -255,7 +255,7 @@ class FaultInjector:
                 response_received=True,
                 error_type="InjectedServiceUnavailableError",
             )
-            raise InjectedServiceUnavailableError("Injected API 503", event)
+            raise InjectedServiceUnavailableError("Tool service unavailable", event)
         if fault_type == FaultType.F3_INVALID_ARGUMENT:
             event = self._event(
                 operation,
@@ -267,7 +267,7 @@ class FaultInjector:
                 response_received=True,
                 error_type="InjectedInvalidArgumentError",
             )
-            raise InjectedInvalidArgumentError("Injected invalid argument", event)
+            raise InjectedInvalidArgumentError("Tool arguments were rejected", event)
         if fault_type == FaultType.F4_STALE_OBSERVATION:
             self._event(
                 operation,
@@ -298,10 +298,13 @@ class FaultInjector:
             commit = bool(self.config.parameters.get("commit", True))
             if commit:
                 committed_result = call()
-                status = CommitStatus.COMMITTED
+                default_status = CommitStatus.COMMITTED
             else:
                 committed_result = None
-                status = CommitStatus.NOT_COMMITTED
+                default_status = CommitStatus.NOT_COMMITTED
+            status = CommitStatus(
+                str(self.config.parameters.get("commit_status", default_status.value))
+            )
             event = self._event(
                 operation,
                 arguments,
@@ -313,7 +316,7 @@ class FaultInjector:
                 error_type="PartialFailureError",
             )
             raise PartialFailureError(
-                "Injected partial failure after commit" if commit else "Injected failure before commit",
+                "Tool request failed before a response",
                 event,
                 committed_result,
             )

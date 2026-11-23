@@ -1,6 +1,7 @@
 """Local MiniToolBench-R task environments and deterministic evaluation."""
 
 from .environment import TaskEnvironment
+from .p2_catalog import build_p2_d1_catalog
 from .runner import ReferenceTaskRunner, TaskRunResult
 from .task_loader import load_tasks
 from .task_generator import (
@@ -19,6 +20,7 @@ __all__ = [
     "TaskEnvironment",
     "TaskRunResult",
     "ValidationResult",
+    "build_p2_d1_catalog",
     "generate_task_instances",
     "load_tasks",
     "load_task_templates",

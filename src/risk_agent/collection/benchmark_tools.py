@@ -19,7 +19,7 @@ from risk_agent.tools.task_tool_registry import TaskToolRegistry
 @dataclass(frozen=True, slots=True)
 class ToolDefinition:
     description: str
-    inputs: Mapping[str, Mapping[str, str]]
+    inputs: Mapping[str, Mapping[str, Any]]
 
 
 class CompletedToolReplayError(RuntimeError):
@@ -51,10 +51,36 @@ TOOL_DEFINITIONS: dict[str, ToolDefinition] = {
             "value": {"type": "string", "description": "Comparison value as text."},
         },
     ),
+    "filter_records": ToolDefinition(
+        "Filter rows returned by an earlier tool call using eq, gt, gte, lt, or lte.",
+        {
+            "records": {
+                "type": "array",
+                "description": "Rows returned by read_csv or another record tool.",
+                "items": {"type": "object"},
+            },
+            "column": {"type": "string", "description": "Column to filter."},
+            "operator": {"type": "string", "description": "One of eq, gt, gte, lt, lte."},
+            "value": {"type": "string", "description": "Comparison value as text."},
+        },
+    ),
     "aggregate_data": ToolDefinition(
         "Group CSV rows and compute sum, mean, or count for each group.",
         {
             "path": {"type": "string", "description": "Workspace-relative .csv path."},
+            "group_by": {"type": "string", "description": "Grouping column."},
+            "value_column": {"type": "string", "description": "Numeric value column."},
+            "operation": {"type": "string", "description": "One of sum, mean, count."},
+        },
+    ),
+    "aggregate_records": ToolDefinition(
+        "Aggregate rows returned by an earlier tool call by sum, mean, or count.",
+        {
+            "records": {
+                "type": "array",
+                "description": "Filtered rows returned by an earlier tool call.",
+                "items": {"type": "object"},
+            },
             "group_by": {"type": "string", "description": "Grouping column."},
             "value_column": {"type": "string", "description": "Numeric value column."},
             "operation": {"type": "string", "description": "One of sum, mean, count."},
@@ -68,6 +94,17 @@ TOOL_DEFINITIONS: dict[str, ToolDefinition] = {
         "Search text files recursively and return exact matching paths, line numbers, and lines.",
         {
             "directory": {"type": "string", "description": "Workspace-relative directory."},
+            "query": {"type": "string", "description": "Non-empty case-insensitive query."},
+        },
+    ),
+    "search_paths": ToolDefinition(
+        "Search only the workspace file paths returned by an earlier tool call.",
+        {
+            "paths": {
+                "type": "array",
+                "description": "Workspace-relative paths returned by list_files.",
+                "items": {"type": "string"},
+            },
             "query": {"type": "string", "description": "Non-empty case-insensitive query."},
         },
     ),
@@ -116,8 +153,19 @@ TOOL_DEFINITIONS: dict[str, ToolDefinition] = {
 
 
 DOMAIN_TOOL_NAMES: dict[Domain, tuple[str, ...]] = {
-    Domain.DATA_ANALYSIS: ("read_csv", "filter_data", "aggregate_data"),
-    Domain.FILE_RETRIEVAL: ("list_files", "search_files", "read_file"),
+    Domain.DATA_ANALYSIS: (
+        "read_csv",
+        "filter_data",
+        "filter_records",
+        "aggregate_data",
+        "aggregate_records",
+    ),
+    Domain.FILE_RETRIEVAL: (
+        "list_files",
+        "search_files",
+        "search_paths",
+        "read_file",
+    ),
     Domain.API_WORKFLOW: ("query_inventory", "get_order", "update_order"),
     Domain.CALCULATION_LOGIC: ("calculator", "unit_converter", "validate_result"),
 }
@@ -129,7 +177,7 @@ class LocalBenchmarkTool(Tool):
     skip_forward_signature_validation = True
     name = "local_benchmark_tool"
     description = "Execute one local benchmark operation."
-    inputs: dict[str, dict[str, str]] = {}
+    inputs: dict[str, dict[str, Any]] = {}
     output_type = "any"
 
     def __init__(

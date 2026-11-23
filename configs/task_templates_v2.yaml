@@ -1,0 +1,357 @@
+version: 2
+catalog_version: minitoolbench-r-v2
+instances_per_template: 2
+extends: task_templates.yaml
+
+x-fault-profiles:
+  f0: &fault_f0
+    fault_type: F0_NO_FAULT
+    call_indices: []
+    probability: 0.0
+    parameters: {}
+  f1: &fault_f1
+    fault_type: F1_TIMEOUT
+    call_indices: [1]
+    probability: 0.0
+    parameters: {commit_status: unknown}
+  f2: &fault_f2
+    fault_type: F2_API_503
+    call_indices: [1]
+    probability: 0.0
+    parameters: {}
+  f3: &fault_f3
+    fault_type: F3_INVALID_ARGUMENT
+    call_indices: [1]
+    probability: 0.0
+    parameters: {}
+  f4: &fault_f4
+    fault_type: F4_STALE_OBSERVATION
+    call_indices: [1]
+    probability: 0.0
+  f5: &fault_f5
+    fault_type: F5_REPEATED_ACTION
+    call_indices: [2]
+    probability: 0.0
+    parameters: {}
+  f6_not_committed: &fault_f6_not_committed
+    fault_type: F6_PARTIAL_FAILURE
+    call_indices: [1]
+    probability: 0.0
+    parameters: {commit: false, commit_status: not_committed}
+  f6_committed: &fault_f6_committed
+    fault_type: F6_PARTIAL_FAILURE
+    call_indices: [1]
+    probability: 0.0
+    parameters: {commit: true, commit_status: committed}
+  f6_unknown: &fault_f6_unknown
+    fault_type: F6_PARTIAL_FAILURE
+    call_indices: [1]
+    probability: 0.0
+    parameters: {commit: true, commit_status: unknown}
+
+x-intervention-profiles:
+  f0: &intervention_f0
+    retry: {applicable: false, condition: no_failure_to_retry}
+    replan: {applicable: false, condition: no_failure_to_replan}
+    requires_state_check: false
+  f1: &intervention_f1
+    retry: {applicable: true, condition: read_only_or_known_uncommitted}
+    replan: {applicable: true, condition: timeout_persists_or_commit_uncertain}
+    requires_state_check: false
+  f2: &intervention_f2
+    retry: {applicable: true, condition: service_failure_before_execution}
+    replan: {applicable: true, condition: service_remains_unavailable}
+    requires_state_check: false
+  f3: &intervention_f3
+    retry: {applicable: false, condition: unchanged_arguments_would_repeat_error}
+    replan: {applicable: true, condition: correct_arguments_from_visible_error}
+    requires_state_check: false
+  f4: &intervention_f4
+    retry: {applicable: false, condition: stale_value_must_not_be_reused}
+    replan: {applicable: true, condition: refresh_state_before_next_action}
+    requires_state_check: true
+  f5: &intervention_f5
+    retry: {applicable: false, condition: identical_call_would_make_no_progress}
+    replan: {applicable: true, condition: choose_a_progress_making_action}
+    requires_state_check: false
+  f6_not_committed: &intervention_f6_not_committed
+    retry: {applicable: true, condition: known_not_committed_and_idempotency_key_present}
+    replan: {applicable: true, condition: retry_budget_exhausted}
+    requires_state_check: false
+  f6_committed: &intervention_f6_committed
+    retry: {applicable: false, condition: write_already_committed}
+    replan: {applicable: true, condition: query_state_before_any_follow_up}
+    requires_state_check: true
+  f6_unknown: &intervention_f6_unknown
+    retry: {applicable: false, condition: commit_state_unknown}
+    replan: {applicable: true, condition: query_state_before_any_follow_up}
+    requires_state_check: true
+
+templates:
+  # New Data Analysis templates: 6 train / 2 validation / 2 test
+  - template_id: p2_data_region_units_sum
+    domain: data_analysis
+    split: train
+    family: multi_data
+    base_seed: 81000
+    parameters:
+      {filter_column: category, operator: eq, group_by: region, value_column: units, operation: sum,
+       fault_plan: {<<: *fault_f0, fault_id: p2_d01_f0, target_tool: read_csv, target_step: 1}, interventions: *intervention_f0}
+  - template_id: p2_data_amount_region_sum
+    domain: data_analysis
+    split: train
+    family: multi_data
+    base_seed: 81010
+    parameters:
+      {filter_column: amount, operator: gt, group_by: region, value_column: units, operation: sum,
+       fault_plan: {<<: *fault_f1, fault_id: p2_d02_f1, target_tool: filter_records, target_step: 2}, interventions: *intervention_f1}
+  - template_id: p2_data_units_category_mean
+    domain: data_analysis
+    split: train
+    family: multi_data
+    base_seed: 81020
+    parameters:
+      {filter_column: units, operator: gte, group_by: category, value_column: amount, operation: mean,
+       fault_plan: {<<: *fault_f2, fault_id: p2_d03_f2, target_tool: filter_records, target_step: 2}, interventions: *intervention_f2}
+  - template_id: p2_data_latency_region_count
+    domain: data_analysis
+    split: train
+    family: multi_data
+    base_seed: 81030
+    parameters:
+      {filter_column: latency, operator: lt, group_by: region, value_column: units, operation: count,
+       fault_plan: {<<: *fault_f3, fault_id: p2_d04_f3, target_tool: filter_records, target_step: 2}, interventions: *intervention_f3}
+  - template_id: p2_data_category_stale_sum
+    domain: data_analysis
+    split: train
+    family: multi_data
+    base_seed: 81040
+    parameters:
+      {filter_column: category, operator: eq, group_by: region, value_column: amount, operation: sum,
+       fault_plan: {<<: *fault_f4, fault_id: p2_d05_f4, target_tool: filter_records, target_step: 2, parameters: {stale_result: []}}, interventions: *intervention_f4}
+  - template_id: p2_data_repeated_filter_sum
+    domain: data_analysis
+    split: train
+    family: multi_data
+    base_seed: 81050
+    parameters:
+      {filter_column: amount, operator: gte, group_by: category, value_column: units, operation: sum,
+       fault_plan: {<<: *fault_f5, fault_id: p2_d06_f5, target_tool: filter_records, target_step: 3}, interventions: *intervention_f5}
+  - template_id: p2_data_validation_control
+    domain: data_analysis
+    split: validation
+    family: multi_data
+    base_seed: 81060
+    parameters:
+      {filter_column: units, operator: gt, group_by: region, value_column: amount, operation: mean,
+       fault_plan: {<<: *fault_f0, fault_id: p2_d07_f0, target_tool: read_csv, target_step: 1}, interventions: *intervention_f0}
+  - template_id: p2_data_validation_timeout
+    domain: data_analysis
+    split: validation
+    family: multi_data
+    base_seed: 81070
+    parameters:
+      {filter_column: latency, operator: lte, group_by: category, value_column: units, operation: sum,
+       fault_plan: {<<: *fault_f1, fault_id: p2_d08_f1, target_tool: filter_records, target_step: 2}, interventions: *intervention_f1}
+  - template_id: p2_data_test_control
+    domain: data_analysis
+    split: test
+    family: multi_data
+    base_seed: 81080
+    parameters:
+      {filter_column: amount, operator: gt, group_by: region, value_column: latency, operation: sum,
+       fault_plan: {<<: *fault_f0, fault_id: p2_d09_f0, target_tool: read_csv, target_step: 1}, interventions: *intervention_f0}
+  - template_id: p2_data_test_timeout
+    domain: data_analysis
+    split: test
+    family: multi_data
+    base_seed: 81090
+    parameters:
+      {filter_column: units, operator: gte, group_by: category, value_column: amount, operation: count,
+       fault_plan: {<<: *fault_f1, fault_id: p2_d10_f1, target_tool: filter_records, target_step: 2}, interventions: *intervention_f1}
+
+  # New File Retrieval templates: 6 train / 2 validation / 2 test
+  - template_id: p2_file_report_control
+    domain: file_retrieval
+    split: train
+    family: multi_file
+    base_seed: 82000
+    parameters: {scenario: report, fault_plan: {<<: *fault_f0, fault_id: p2_f01_f0, target_tool: list_files, target_step: 1}, interventions: *intervention_f0}
+  - template_id: p2_file_report_timeout
+    domain: file_retrieval
+    split: train
+    family: multi_file
+    base_seed: 82010
+    parameters: {scenario: report, fault_plan: {<<: *fault_f1, fault_id: p2_f02_f1, target_tool: search_paths, target_step: 2}, interventions: *intervention_f1}
+  - template_id: p2_file_archive_unavailable
+    domain: file_retrieval
+    split: train
+    family: multi_file
+    base_seed: 82020
+    parameters: {scenario: archive, fault_plan: {<<: *fault_f2, fault_id: p2_f03_f2, target_tool: search_paths, target_step: 2}, interventions: *intervention_f2}
+  - template_id: p2_file_owner_invalid
+    domain: file_retrieval
+    split: train
+    family: multi_file
+    base_seed: 82030
+    parameters: {scenario: owner, fault_plan: {<<: *fault_f3, fault_id: p2_f04_f3, target_tool: search_paths, target_step: 2}, interventions: *intervention_f3}
+  - template_id: p2_file_report_stale
+    domain: file_retrieval
+    split: train
+    family: multi_file
+    base_seed: 82040
+    parameters: {scenario: report, fault_plan: {<<: *fault_f4, fault_id: p2_f05_f4, target_tool: search_paths, target_step: 2, parameters: {stale_result: []}}, interventions: *intervention_f4}
+  - template_id: p2_file_repeated_search
+    domain: file_retrieval
+    split: train
+    family: multi_file
+    base_seed: 82050
+    parameters: {scenario: report, fault_plan: {<<: *fault_f5, fault_id: p2_f06_f5, target_tool: search_paths, target_step: 3}, interventions: *intervention_f5}
+  - template_id: p2_file_validation_unavailable
+    domain: file_retrieval
+    split: validation
+    family: multi_file
+    base_seed: 82060
+    parameters: {scenario: validation, fault_plan: {<<: *fault_f2, fault_id: p2_f07_f2, target_tool: search_paths, target_step: 2}, interventions: *intervention_f2}
+  - template_id: p2_file_validation_invalid
+    domain: file_retrieval
+    split: validation
+    family: multi_file
+    base_seed: 82070
+    parameters: {scenario: validation, fault_plan: {<<: *fault_f3, fault_id: p2_f08_f3, target_tool: search_paths, target_step: 2}, interventions: *intervention_f3}
+  - template_id: p2_file_test_unavailable
+    domain: file_retrieval
+    split: test
+    family: multi_file
+    base_seed: 82080
+    parameters: {scenario: test, fault_plan: {<<: *fault_f2, fault_id: p2_f09_f2, target_tool: search_paths, target_step: 2}, interventions: *intervention_f2}
+  - template_id: p2_file_test_invalid
+    domain: file_retrieval
+    split: test
+    family: multi_file
+    base_seed: 82090
+    parameters: {scenario: test, fault_plan: {<<: *fault_f3, fault_id: p2_f10_f3, target_tool: search_paths, target_step: 2}, interventions: *intervention_f3}
+
+  # New API Workflow templates: 6 train / 2 validation / 2 test
+  - template_id: p2_api_process_control
+    domain: api_workflow
+    split: train
+    family: multi_api
+    base_seed: 83000
+    parameters: {initial_status: pending, new_status: processing, fault_plan: {<<: *fault_f0, fault_id: p2_a01_f0, target_tool: get_order, target_step: 1}, interventions: *intervention_f0}
+  - template_id: p2_api_process_timeout
+    domain: api_workflow
+    split: train
+    family: multi_api
+    base_seed: 83010
+    parameters: {initial_status: pending, new_status: processing, fault_plan: {<<: *fault_f1, fault_id: p2_a02_f1, target_tool: get_order, target_step: 1}, interventions: *intervention_f1}
+  - template_id: p2_api_process_unavailable
+    domain: api_workflow
+    split: train
+    family: multi_api
+    base_seed: 83020
+    parameters: {initial_status: pending, new_status: processing, fault_plan: {<<: *fault_f2, fault_id: p2_a03_f2, target_tool: get_order, target_step: 1}, interventions: *intervention_f2}
+  - template_id: p2_api_process_invalid
+    domain: api_workflow
+    split: train
+    family: multi_api
+    base_seed: 83030
+    parameters: {initial_status: pending, new_status: processing, fault_plan: {<<: *fault_f3, fault_id: p2_a04_f3, target_tool: update_order, target_step: 2}, interventions: *intervention_f3}
+  - template_id: p2_api_repeated_state_read
+    domain: api_workflow
+    split: train
+    family: multi_api
+    base_seed: 83040
+    parameters: {initial_status: processing, new_status: shipped, fault_plan: {<<: *fault_f5, fault_id: p2_a05_f5, target_tool: get_order, target_step: 2}, interventions: *intervention_f5}
+  - template_id: p2_api_not_committed
+    domain: api_workflow
+    split: train
+    family: multi_api
+    base_seed: 83050
+    parameters: {initial_status: pending, new_status: processing, fault_plan: {<<: *fault_f6_not_committed, fault_id: p2_a06_f6n, target_tool: update_order, target_step: 2}, interventions: *intervention_f6_not_committed}
+  - template_id: p2_api_validation_stale
+    domain: api_workflow
+    split: validation
+    family: multi_api
+    base_seed: 83060
+    parameters: {initial_status: pending, new_status: processing, fault_plan: {<<: *fault_f4, fault_id: p2_a07_f4, target_tool: get_order, target_step: 1, parameters: {stale_result: {order_id: stale-order, status: pending, version: 0}}}, interventions: *intervention_f4}
+  - template_id: p2_api_validation_committed
+    domain: api_workflow
+    split: validation
+    family: multi_api
+    base_seed: 83070
+    parameters: {initial_status: processing, new_status: shipped, fault_plan: {<<: *fault_f6_committed, fault_id: p2_a08_f6c, target_tool: update_order, target_step: 2}, interventions: *intervention_f6_committed}
+  - template_id: p2_api_test_stale
+    domain: api_workflow
+    split: test
+    family: multi_api
+    base_seed: 83080
+    parameters: {initial_status: pending, new_status: cancelled, fault_plan: {<<: *fault_f4, fault_id: p2_a09_f4, target_tool: get_order, target_step: 1, parameters: {stale_result: {order_id: stale-order, status: pending, version: 0}}}, interventions: *intervention_f4}
+  - template_id: p2_api_test_unknown
+    domain: api_workflow
+    split: test
+    family: multi_api
+    base_seed: 83090
+    parameters: {initial_status: processing, new_status: shipped, fault_plan: {<<: *fault_f6_unknown, fault_id: p2_a10_f6u, target_tool: update_order, target_step: 2}, interventions: *intervention_f6_unknown}
+
+  # New Calculation & Logic templates: 6 train / 2 validation / 2 test
+  - template_id: p2_logic_chain_control
+    domain: calculation_logic
+    split: train
+    family: multi_logic
+    base_seed: 84000
+    parameters: {factor: 2, fault_plan: {<<: *fault_f0, fault_id: p2_l01_f0, target_tool: calculator, target_step: 1}, interventions: *intervention_f0}
+  - template_id: p2_logic_chain_timeout
+    domain: calculation_logic
+    split: train
+    family: multi_logic
+    base_seed: 84010
+    parameters: {factor: 3, fault_plan: {<<: *fault_f1, fault_id: p2_l02_f1, target_tool: calculator, target_step: 2, call_indices: [2]}, interventions: *intervention_f1}
+  - template_id: p2_logic_chain_unavailable
+    domain: calculation_logic
+    split: train
+    family: multi_logic
+    base_seed: 84020
+    parameters: {factor: 4, fault_plan: {<<: *fault_f2, fault_id: p2_l03_f2, target_tool: calculator, target_step: 2, call_indices: [2]}, interventions: *intervention_f2}
+  - template_id: p2_logic_chain_invalid
+    domain: calculation_logic
+    split: train
+    family: multi_logic
+    base_seed: 84030
+    parameters: {factor: 2, fault_plan: {<<: *fault_f3, fault_id: p2_l04_f3, target_tool: calculator, target_step: 2, call_indices: [2]}, interventions: *intervention_f3}
+  - template_id: p2_logic_chain_stale
+    domain: calculation_logic
+    split: train
+    family: multi_logic
+    base_seed: 84040
+    parameters: {factor: 3, fault_plan: {<<: *fault_f4, fault_id: p2_l05_f4, target_tool: calculator, target_step: 2, call_indices: [2], parameters: {stale_result: "0"}}, interventions: *intervention_f4}
+  - template_id: p2_logic_repeated_calculation
+    domain: calculation_logic
+    split: train
+    family: multi_logic
+    base_seed: 84050
+    parameters: {factor: 4, fault_plan: {<<: *fault_f5, fault_id: p2_l06_f5, target_tool: calculator, target_step: 2}, interventions: *intervention_f5}
+  - template_id: p2_logic_validation_repeat
+    domain: calculation_logic
+    split: validation
+    family: multi_logic
+    base_seed: 84060
+    parameters: {factor: 2, fault_plan: {<<: *fault_f5, fault_id: p2_l07_f5, target_tool: calculator, target_step: 2}, interventions: *intervention_f5}
+  - template_id: p2_logic_validation_control
+    domain: calculation_logic
+    split: validation
+    family: multi_logic
+    base_seed: 84070
+    parameters: {factor: 3, fault_plan: {<<: *fault_f0, fault_id: p2_l08_f0, target_tool: calculator, target_step: 1}, interventions: *intervention_f0}
+  - template_id: p2_logic_test_repeat
+    domain: calculation_logic
+    split: test
+    family: multi_logic
+    base_seed: 84080
+    parameters: {factor: 4, fault_plan: {<<: *fault_f5, fault_id: p2_l09_f5, target_tool: calculator, target_step: 2}, interventions: *intervention_f5}
+  - template_id: p2_logic_test_control
+    domain: calculation_logic
+    split: test
+    family: multi_logic
+    base_seed: 84090
+    parameters: {factor: 2, fault_plan: {<<: *fault_f0, fault_id: p2_l10_f0, target_tool: calculator, target_step: 1}, interventions: *intervention_f0}

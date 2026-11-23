@@ -20,12 +20,21 @@ class FileRetrievalTools:
         )
 
     def search_files(self, directory: str, query: str) -> list[dict[str, object]]:
+        return self.search_paths(self.list_files(directory), query)
+
+    def search_paths(
+        self, paths: list[str], query: str
+    ) -> list[dict[str, object]]:
         if not query:
             raise ValueError("query must not be empty")
         matches: list[dict[str, object]] = []
         folded_query = query.casefold()
-        for relative in self.list_files(directory):
+        for relative in paths:
+            if not isinstance(relative, str):
+                raise ValueError("paths must contain workspace-relative strings")
             path = self.environment.resolve_path(relative)
+            if not path.is_file():
+                raise FileNotFoundError(relative)
             try:
                 lines = path.read_text(encoding="utf-8").splitlines()
             except UnicodeDecodeError:

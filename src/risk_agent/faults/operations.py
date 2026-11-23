@@ -10,9 +10,12 @@ from .schema import ToolOperation
 _READ_ONLY_TOOLS = {
     "read_csv",
     "filter_data",
+    "filter_records",
     "aggregate_data",
+    "aggregate_records",
     "list_files",
     "search_files",
+    "search_paths",
     "read_file",
     "query_inventory",
     "get_order",
