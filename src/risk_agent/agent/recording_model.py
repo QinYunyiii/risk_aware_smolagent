@@ -12,7 +12,8 @@ from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence
 
 from smolagents import Tool
-from smolagents.models import ChatMessage, Model
+from smolagents.models import ApiModel, ChatMessage, Model, is_rate_limit_error
+from smolagents.utils import Retrying
 
 from risk_agent.monitoring import RuntimeState
 
@@ -27,6 +28,14 @@ _SENSITIVE_FINGERPRINT_PARTS = (
     "secret",
     "access_token",
 )
+
+
+class ModelRequestRejected(RuntimeError):
+    """The model request violated its resume contract or a live budget."""
+
+
+class ModelRequestIntercepted(RuntimeError):
+    """A valid request was intentionally stopped before the underlying model ran."""
 
 
 def _is_sensitive_fingerprint_key(key: str) -> bool:
@@ -52,14 +61,70 @@ def _fingerprint_value(value: Any, *, key: str = "") -> Any:
         }
     if isinstance(value, (list, tuple)):
         return [_fingerprint_value(item, key=key) for item in value]
+    return {"type": f"{type(value).__module__}.{type(value).__qualname__}"}
+
+
+def _callable_fingerprint(value: Any) -> dict[str, str]:
+    if not callable(value):
+        raise ModelRequestRejected("underlying_retry_policy is not callable")
+    module = getattr(value, "__module__", None)
+    qualname = getattr(value, "__qualname__", None)
+    if not isinstance(module, str) or not isinstance(qualname, str):
+        raise ModelRequestRejected("underlying_retry_policy identity is unavailable")
+    return {"module": module, "qualname": qualname}
+
+
+def _retryer_fingerprint(model: Model) -> dict[str, Any] | None:
+    """Validate and fingerprint smolagents' effective in-process retry policy."""
+
+    if not isinstance(model, ApiModel):
+        return None
+    retryer = getattr(model, "retryer", None)
+    if type(retryer) is not Retrying:
+        raise ModelRequestRejected("underlying_retryer type is not verifiable")
+    max_attempts = getattr(retryer, "max_attempts", None)
+    if isinstance(max_attempts, bool) or max_attempts != 1:
+        raise ModelRequestRejected("underlying_retryer must allow exactly one attempt")
+    retry_predicate = getattr(retryer, "retry_predicate", None)
+    if retry_predicate is not is_rate_limit_error:
+        raise ModelRequestRejected("underlying_retry_policy is not the pinned policy")
+    wait_seconds = getattr(retryer, "wait_seconds", None)
+    exponential_base = getattr(retryer, "exponential_base", None)
+    jitter = getattr(retryer, "jitter", None)
+    reraise = getattr(retryer, "reraise", None)
+    for name, value in (
+        ("wait_seconds", wait_seconds),
+        ("exponential_base", exponential_base),
+    ):
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(float(value))
+            or value < 0
+        ):
+            raise ModelRequestRejected(f"underlying_retryer {name} is not verifiable")
+    if not isinstance(jitter, bool) or reraise is not True:
+        raise ModelRequestRejected("underlying_retryer flags are not verifiable")
     return {
-        "type": f"{type(value).__module__}.{type(value).__qualname__}",
-        "object_identity": id(value),
+        "type": f"{type(retryer).__module__}.{type(retryer).__qualname__}",
+        "stop_policy": {"type": "max_attempts", "max_attempts": max_attempts},
+        "retry_policy": _callable_fingerprint(retry_predicate),
+        "wait_policy": {
+            "type": "exponential_jitter",
+            "wait_seconds": float(wait_seconds),
+            "exponential_base": float(exponential_base),
+            "jitter": jitter,
+        },
+        "reraise": reraise,
     }
 
 
-def _client_request_fingerprint(client: Any) -> dict[str, Any]:
+def _client_request_fingerprint(
+    client: Any, *, require_no_retry: bool = False
+) -> dict[str, Any]:
     if client is None:
+        if require_no_retry:
+            raise ModelRequestRejected("underlying_client is unavailable")
         return {}
     result: dict[str, Any] = {
         "type": f"{type(client).__module__}.{type(client).__qualname__}"
@@ -70,12 +135,26 @@ def _client_request_fingerprint(client: Any) -> dict[str, Any]:
             if attribute in {"base_url", "timeout"}:
                 value = str(value)
             result[attribute] = _fingerprint_value(value, key=attribute)
+    if require_no_retry:
+        max_retries = getattr(client, "max_retries", None)
+        if isinstance(max_retries, bool) or max_retries != 0:
+            raise ModelRequestRejected("underlying_client max_retries must be zero")
     return result
 
 
 def _actual_model_fingerprint(model: Model) -> dict[str, Any]:
     """Capture the delegated object's request identity without retaining secrets."""
 
+    is_api_model = isinstance(model, ApiModel)
+    client_kwargs = getattr(model, "client_kwargs", {})
+    if is_api_model:
+        if not isinstance(client_kwargs, Mapping):
+            raise ModelRequestRejected("underlying_client_kwargs are unavailable")
+        configured_retries = client_kwargs.get("max_retries")
+        if isinstance(configured_retries, bool) or configured_retries != 0:
+            raise ModelRequestRejected(
+                "underlying_client_kwargs max_retries must be zero"
+            )
     optional_attributes = {}
     for attribute in (
         "model_version",
@@ -97,20 +176,13 @@ def _actual_model_fingerprint(model: Model) -> dict[str, Any]:
         "flatten_messages_as_text": bool(model.flatten_messages_as_text),
         "tool_name_key": str(model.tool_name_key),
         "tool_arguments_key": str(model.tool_arguments_key),
-        "client_kwargs": _fingerprint_value(
-            getattr(model, "client_kwargs", {}), key="client_kwargs"
+        "client_kwargs": _fingerprint_value(client_kwargs, key="client_kwargs"),
+        "client": _client_request_fingerprint(
+            getattr(model, "client", None), require_no_retry=is_api_model
         ),
-        "client": _client_request_fingerprint(getattr(model, "client", None)),
+        "retryer": _retryer_fingerprint(model),
         "optional": optional_attributes,
     }
-
-
-class ModelRequestRejected(RuntimeError):
-    """The model request violated its resume contract or a live budget."""
-
-
-class ModelRequestIntercepted(RuntimeError):
-    """A valid request was intentionally stopped before the underlying model ran."""
 
 
 def _public_tool_schema(tools: Sequence[Tool] | None) -> list[dict[str, Any]]:
@@ -211,6 +283,16 @@ class RecordingModel(Model):
         self._token_usage_complete = True
         self._delegation_lock = threading.RLock()
         self._tool_budget_lock = threading.RLock()
+        self._underlying_retryer_reference = (
+            getattr(underlying, "retryer", None)
+            if isinstance(underlying, ApiModel)
+            else None
+        )
+        self._underlying_client_reference = (
+            getattr(underlying, "client", None)
+            if isinstance(underlying, ApiModel)
+            else None
+        )
         self._wrapper_model_id = self.model_id
         self._wrapper_generation_fingerprint = canonical_json(
             _fingerprint_value(dict(self.kwargs), key="kwargs")
@@ -295,12 +377,22 @@ class RecordingModel(Model):
             _fingerprint_value(dict(self.kwargs), key="kwargs")
         ) != self._wrapper_generation_fingerprint:
             return "generation_config"
-        current = _actual_model_fingerprint(self.underlying)
+        if isinstance(self.underlying, ApiModel):
+            if self.underlying.retryer is not self._underlying_retryer_reference:
+                return "underlying_retryer_replaced"
+            if self.underlying.client is not self._underlying_client_reference:
+                return "underlying_client_replaced"
+        try:
+            current = _actual_model_fingerprint(self.underlying)
+        except ModelRequestRejected:
+            return "underlying_no_retry_configuration"
         frozen = json.loads(self._underlying_fingerprint)
         if current["model_id"] != frozen["model_id"]:
             return "underlying_model_id"
         if current["generation_config"] != frozen["generation_config"]:
             return "underlying_generation_config"
+        if current["retryer"] != frozen["retryer"]:
+            return "underlying_retryer_configuration"
         if (
             current["client_kwargs"] != frozen["client_kwargs"]
             or current["client"] != frozen["client"]
@@ -342,6 +434,21 @@ class RecordingModel(Model):
                 "response_tool_calls_blocked: "
                 f"{self._post_response_budget_violation}"
             )
+
+    def require_task_tool_execution_allowed(self) -> None:
+        """Allow exhausted budgets to terminate, but never to start another task tool."""
+
+        if self._max_model_calls is not None and self.model_calls_used >= self._max_model_calls:
+            raise ModelRequestRejected("terminal_model_call_budget")
+        tokens, tool_calls, latency, max_tokens, max_tools, max_latency = self._budget_values()
+        if tokens is None:
+            raise ModelRequestRejected("terminal_token_usage_unavailable")
+        if tokens >= max_tokens:
+            raise ModelRequestRejected("terminal_token_budget")
+        if latency >= max_latency:
+            raise ModelRequestRejected("terminal_latency_budget")
+        if tool_calls >= max_tools:
+            raise ModelRequestRejected("terminal_tool_call_budget")
 
     def expect(self, expected: ExpectedModelRequest) -> None:
         """Install the immutable one-shot resume contract.

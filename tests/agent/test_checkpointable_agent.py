@@ -1191,3 +1191,209 @@ def test_model_fingerprint_retains_only_secret_presence_metadata() -> None:
     }
     assert fingerprint["optional"]["model_version"] == "fixture-version"
     assert fingerprint["optional"]["worker_id"] == "worker-fixture"
+    assert "object_identity" not in str(fingerprint)
+
+
+@pytest.mark.parametrize(
+    ("prior_calls", "expected_calls", "allowed"),
+    [(8, 9, True), (9, 10, False)],
+)
+def test_terminal_model_call_budget_blocks_only_task_tools(
+    prior_calls: int, expected_calls: int, allowed: bool
+) -> None:
+    runtime = RuntimeState(seed=1, budget=BudgetState(50_000, 12, 900.0))
+    tool = ReadOnlyProbeTool()
+    agent, model, underlying = _budget_agent(
+        _calls_message([("call-model-terminal", "read_probe", {"value": "model"})]),
+        runtime,
+        tool,
+    )
+    model.restore_model_calls_used(prior_calls)
+
+    event = _first_action_step(agent)
+
+    assert model.model_calls_used == expected_calls
+    assert underlying.calls == 1
+    assert runtime.budget.tool_calls_used == (1 if allowed else 0)
+    assert tool.calls == (1 if allowed else 0)
+    if allowed:
+        assert event.error is None
+    else:
+        assert event.error is not None
+        assert "terminal_model_call_budget" in str(event.error)
+
+
+def test_terminal_model_call_budget_allows_final_answer() -> None:
+    runtime = RuntimeState(seed=1, budget=BudgetState(50_000, 12, 900.0))
+    tool = ReadOnlyProbeTool()
+    agent, model, underlying = _budget_agent(_final_answer(), runtime, tool)
+    model.restore_model_calls_used(9)
+
+    assert agent.run("Finish at the model-call limit.") == "done"
+    assert model.model_calls_used == 10
+    assert underlying.calls == 1
+    assert tool.calls == 0
+    assert runtime.budget.tool_calls_used == 0
+
+
+@pytest.mark.parametrize("final_answer", [False, True])
+def test_exact_token_limit_blocks_task_tool_but_allows_final_answer(
+    final_answer: bool,
+) -> None:
+    response = _final_answer() if final_answer else _calls_message(
+        [("call-token-terminal", "read_probe", {"value": "token"})]
+    )
+    response.token_usage = TokenUsage(input_tokens=1, output_tokens=0)
+    runtime = RuntimeState(
+        seed=1,
+        budget=BudgetState(50_000, 12, 900.0, tokens_used=49_999),
+    )
+    tool = ReadOnlyProbeTool()
+    agent, model, underlying = _budget_agent(response, runtime, tool)
+
+    if final_answer:
+        assert agent.run("Finish at the token limit.") == "done"
+    else:
+        event = _first_action_step(agent)
+        assert event.error is not None
+        assert "terminal_token_budget" in str(event.error)
+
+    assert runtime.budget.tokens_used == 50_000
+    assert model.model_calls_used == 1
+    assert underlying.calls == 1
+    assert tool.calls == 0
+    assert runtime.budget.tool_calls_used == 0
+
+
+@pytest.mark.parametrize("final_answer", [False, True])
+def test_exact_latency_limit_blocks_task_tool_but_allows_final_answer(
+    final_answer: bool,
+) -> None:
+    response = _final_answer() if final_answer else _calls_message(
+        [("call-latency-terminal", "read_probe", {"value": "latency"})]
+    )
+    ticks = iter([100.0, 100.25])
+    runtime = RuntimeState(
+        seed=1,
+        budget=BudgetState(50_000, 12, 900.0, latency_seconds_used=899.75),
+    )
+    tool = ReadOnlyProbeTool()
+    agent, model, underlying = _budget_agent(
+        response, runtime, tool, clock=lambda: next(ticks)
+    )
+
+    if final_answer:
+        assert agent.run("Finish at the latency limit.") == "done"
+    else:
+        event = _first_action_step(agent)
+        assert event.error is not None
+        assert "terminal_latency_budget" in str(event.error)
+
+    assert runtime.budget.latency_seconds_used == pytest.approx(900.0)
+    assert model.model_calls_used == 1
+    assert underlying.calls == 1
+    assert tool.calls == 0
+    assert runtime.budget.tool_calls_used == 0
+
+
+@pytest.mark.parametrize("budget", ["token", "latency"])
+def test_strict_overage_still_blocks_final_answer(budget: str) -> None:
+    response = _final_answer()
+    runtime = RuntimeState(
+        seed=1,
+        budget=BudgetState(
+            50_000,
+            12,
+            900.0,
+            tokens_used=49_999 if budget == "token" else 0,
+            latency_seconds_used=899.75 if budget == "latency" else 0.0,
+        ),
+    )
+    if budget == "token":
+        response.token_usage = TokenUsage(input_tokens=1, output_tokens=1)
+        clock = None
+    else:
+        ticks = iter([100.0, 100.5])
+        clock = lambda: next(ticks)
+    tool = ReadOnlyProbeTool()
+    agent, model, underlying = _budget_agent(
+        response, runtime, tool, clock=clock
+    )
+
+    event = _first_action_step(agent)
+
+    assert event.error is not None
+    assert "response_tool_calls_blocked" in str(event.error)
+    assert model.requests[-1].status == "budget_violation"
+    assert model.model_calls_used == 1
+    assert underlying.calls == 1
+    assert tool.calls == 0
+
+
+def test_mixed_final_answer_and_task_tool_batch_has_zero_side_effects(
+    tmp_path: Path,
+) -> None:
+    task = _task()
+    environment = TaskEnvironment(tmp_path / "mixed-batch", task)
+    environment.reset()
+    runtime = _runtime(task)
+    response = _calls_message(
+        [
+            (
+                "call-mixed-tool",
+                "increment_counter",
+                {"idempotency_key": "must-not-run"},
+            ),
+            ("call-mixed-final", "final_answer", {"answer": "done"}),
+        ]
+    )
+    agent, model = _agent(environment, runtime, [response])
+
+    event = _first_action_step(agent)
+
+    assert event.error is not None
+    assert "final_answer_must_be_the_only_tool_call" in str(event.error)
+    assert model.model_calls_used == 1
+    assert model.underlying.calls == 1
+    assert runtime.budget.tool_calls_used == 0
+    assert runtime.tool_history == []
+    assert not environment.resolve_path("counter.txt", must_exist=False).exists()
+    assert not environment.resolve_path("keys.txt", must_exist=False).exists()
+
+
+def test_tool_error_cannot_bypass_terminal_model_call_guard() -> None:
+    runtime = RuntimeState(seed=1, budget=BudgetState(50_000, 12, 900.0))
+    failing_tool = ErrorProbeTool()
+    read_tool = ReadOnlyProbeTool()
+    underlying = ScriptedModel(
+        [
+            _calls_message([("call-before-terminal", "error_probe", {})]),
+            _calls_message(
+                [("call-at-terminal", "read_probe", {"value": "must-not-run"})]
+            ),
+        ]
+    )
+    model = RecordingModel(
+        underlying, runtime_state=runtime, max_model_calls=10
+    )
+    model.restore_model_calls_used(8)
+    agent = CheckpointableToolCallingAgent(
+        tools=[failing_tool, read_tool], model=model, max_steps=3, verbosity_level=0
+    )
+    stream = agent.run("Exercise failure at the terminal boundary.", stream=True)
+    action_steps: list[ActionStep] = []
+    while len(action_steps) < 2:
+        event = next(stream)
+        if isinstance(event, ActionStep):
+            action_steps.append(event)
+    stream.close()
+
+    assert failing_tool.calls == 1
+    assert read_tool.calls == 0
+    assert action_steps[0].error is not None
+    assert "visible probe failure" in str(action_steps[0].error)
+    assert action_steps[1].error is not None
+    assert "terminal_model_call_budget" in str(action_steps[1].error)
+    assert underlying.calls == 2
+    assert model.model_calls_used == 10
+    assert runtime.budget.tool_calls_used == 1

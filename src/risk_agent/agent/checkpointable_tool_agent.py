@@ -75,12 +75,19 @@ class CheckpointableToolCallingAgent(ToolCallingAgent):
             for call in (chat_message.tool_calls or [])
         ]
         memory_step.tool_calls = sorted(announced, key=lambda call: call.id)
-        if isinstance(self.model, RecordingModel):
-            task_tool_count = sum(
-                call.name != "final_answer" for call in announced
+        final_answer_count = sum(call.name == "final_answer" for call in announced)
+        task_tool_count = len(announced) - final_answer_count
+        if final_answer_count and len(announced) > 1:
+            raise AgentToolExecutionError(
+                "final_answer_must_be_the_only_tool_call: mixed or multiple "
+                "final_answer batches are rejected before execution",
+                self.logger,
             )
+        if isinstance(self.model, RecordingModel):
             try:
                 self.model.require_tool_response_allowed()
+                if task_tool_count:
+                    self.model.require_task_tool_execution_allowed()
                 self.model.preflight_tool_call_batch(task_tool_count)
             except ModelRequestRejected as exc:
                 raise AgentToolExecutionError(str(exc), self.logger) from exc

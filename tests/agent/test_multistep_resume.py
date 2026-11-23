@@ -176,7 +176,7 @@ def test_second_resumed_provider_failure_is_counted_and_not_retried(
     assert _checkpoint_inventory(checkpoint) == checkpoint_before
 
 
-def test_second_resumed_request_is_rejected_when_first_consumes_token_budget(
+def test_exact_token_budget_blocks_resumed_tool_and_next_provider_request(
     tmp_path: Path,
 ) -> None:
     environment, restored, agent, model, checkpoint, checkpoint_before = _restore(
@@ -198,8 +198,11 @@ def test_second_resumed_request_is_rejected_when_first_consumes_token_budget(
     assert model.requests[-1].difference == "token_budget"
     assert model.underlying.calls == 1
     assert restored.runtime_state.budget.tokens_used == 50_000
-    assert environment.resolve_path("counter.txt").read_text() == "2"
-    assert len(restored.runtime_state.tool_history) == 2
+    action_steps = [step for step in agent.memory.steps if isinstance(step, ActionStep)]
+    assert action_steps[1].error is not None
+    assert "terminal_token_budget" in str(action_steps[1].error)
+    assert environment.resolve_path("counter.txt").read_text() == "1"
+    assert len(restored.runtime_state.tool_history) == 1
     assert _checkpoint_inventory(checkpoint) == checkpoint_before
 
 
