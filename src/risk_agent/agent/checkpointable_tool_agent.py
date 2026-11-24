@@ -12,6 +12,7 @@ from smolagents.agents import (
     ActionOutput,
     AgentError,
     AgentGenerationError,
+    AgentParsingError,
     AgentToolExecutionError,
     handle_agent_output_types,
 )
@@ -19,7 +20,7 @@ from smolagents.memory import ActionStep, FinalAnswerStep, PlanningStep, ToolCal
 from smolagents.models import ChatMessage, ChatMessageStreamDelta
 from smolagents.monitoring import Timing
 
-from risk_agent.monitoring import agent_tool_call_precounted
+from risk_agent.monitoring import AuditPersistenceError, agent_tool_call_precounted
 
 from .agent_state_adapter import AgentStateAdapter, AgentStateSnapshot
 from .recording_model import ModelRequestRejected, RecordingModel
@@ -65,6 +66,48 @@ class CheckpointableToolCallingAgent(ToolCallingAgent):
     def restore_snapshot(self, snapshot: AgentStateSnapshot) -> CheckpointableToolCallingAgent:
         AgentStateAdapter.restore(self, snapshot)
         return self
+
+    def _step_stream(
+        self, memory_step: ActionStep
+    ) -> Generator[ChatMessageStreamDelta | ToolCall | Any, None, None]:
+        """Audit parsing before the first ToolCall can trigger local execution.
+
+        The request identifier is carried by the exact ``ChatMessage`` returned by
+        ``RecordingModel``. This avoids a process-global latest-request pointer and
+        remains safe when multiple Agents or Workers execute concurrently.
+        """
+
+        parsing_recorded = False
+        try:
+            for output in super()._step_stream(memory_step):
+                if isinstance(output, ToolCall) and not parsing_recorded:
+                    if isinstance(self.model, RecordingModel):
+                        assert memory_step.model_output_message is not None
+                        self.model.record_parsing_outcome(
+                            memory_step.model_output_message,
+                            parsing_status="success",
+                        )
+                    parsing_recorded = True
+                yield output
+        except AgentGenerationError as exc:
+            # Upstream wraps every model-boundary exception. Audit persistence is a
+            # local safety failure, not a model generation failure, so preserve its
+            # distinct type for the Gate classifier.
+            if isinstance(exc.__cause__, AuditPersistenceError):
+                raise exc.__cause__
+            raise
+        except AgentParsingError as exc:
+            if isinstance(self.model, RecordingModel):
+                if memory_step.model_output_message is None:
+                    raise AuditPersistenceError(
+                        "audit_persistence_failure: parsing failure has no model response"
+                    ) from exc
+                self.model.record_parsing_outcome(
+                    memory_step.model_output_message,
+                    parsing_status="failed",
+                    exception=exc,
+                )
+            raise
 
     def process_tool_calls(self, chat_message: Any, memory_step: ActionStep):
         """Preserve announced call IDs even when framework tool execution raises.
@@ -173,6 +216,11 @@ class CheckpointableToolCallingAgent(ToolCallingAgent):
             messages,
             stop_sequences=["Observation:", "Calling tools:"],
             tools_to_call_from=self.tools_and_managed_agents,
+        )
+        self.model.record_parsing_outcome(
+            response,
+            parsing_status="not_attempted",
+            reason="controlled_model_response_boundary",
         )
         return ControlledModelResponse(step_number=self.step_number, message=response)
 

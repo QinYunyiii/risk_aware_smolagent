@@ -15,7 +15,12 @@ from smolagents import Tool
 from smolagents.models import ApiModel, ChatMessage, Model, is_rate_limit_error
 from smolagents.utils import Retrying
 
-from risk_agent.monitoring import RuntimeState
+from risk_agent.monitoring import (
+    AuditPersistenceError,
+    ProviderAuditContext,
+    ProviderResponseAudit,
+    RuntimeState,
+)
 
 from .agent_state_adapter import canonical_hash, canonical_json, serialize_chat_message
 
@@ -254,6 +259,8 @@ class RecordingModel(Model):
         runtime_state: RuntimeState | None = None,
         max_model_calls: int | None = None,
         clock: Callable[[], float] = time.perf_counter,
+        provider_audit: ProviderResponseAudit | None = None,
+        provider_audit_context: ProviderAuditContext | None = None,
     ) -> None:
         super().__init__(
             flatten_messages_as_text=underlying.flatten_messages_as_text,
@@ -268,11 +275,17 @@ class RecordingModel(Model):
             or max_model_calls < 1
         ):
             raise ValueError("max_model_calls must be a positive integer")
+        if (provider_audit is None) != (provider_audit_context is None):
+            raise ValueError(
+                "provider_audit and provider_audit_context must be configured together"
+            )
         self.underlying = underlying
         self.intercept_valid_request = intercept_valid_request
         self._runtime_state = runtime_state
         self._max_model_calls = max_model_calls
         self._clock = clock
+        self._provider_audit = provider_audit
+        self._provider_audit_context = provider_audit_context
         self._expected: ExpectedModelRequest | None = None
         self._contract_state = self._NORMAL
         self._step_state_provider: Callable[[], tuple[int, int]] | None = None
@@ -756,6 +769,37 @@ class RecordingModel(Model):
                 self._contract_state = self._VERIFIED
             limits = self._delegation_limits(kwargs)
             delegated_kwargs = {**kwargs, **limits}
+            input_hash = canonical_hash(serialized)
+            generation_config_hash = canonical_hash(
+                _fingerprint_value(
+                    {
+                        "underlying_kwargs": dict(self.underlying.kwargs),
+                        "delegated_kwargs": delegated_kwargs,
+                        "stop_sequences": stop_sequences,
+                        "response_format": response_format,
+                    },
+                    key="generation_config",
+                )
+            )
+            audit_request_id = (
+                self._provider_audit.new_request_id()
+                if self._provider_audit is not None
+                else None
+            )
+            delegated_completion_token_limit = limits.get(
+                "max_tokens", self.underlying.kwargs.get("max_tokens")
+            )
+            if (
+                isinstance(delegated_completion_token_limit, bool)
+                or not isinstance(delegated_completion_token_limit, int)
+                or delegated_completion_token_limit < 1
+            ):
+                delegated_completion_token_limit = None
+            request_started_at = (
+                self._provider_audit.timestamp()
+                if self._provider_audit is not None
+                else None
+            )
             self.executed_calls += 1
             started = self._clock()
             try:
@@ -767,8 +811,40 @@ class RecordingModel(Model):
                         tools_to_call_from=tools_to_call_from,
                         **delegated_kwargs,
                     )
-            except Exception:
+            except Exception as exc:
                 latency = max(0.0, self._clock() - started)
+                if self._provider_audit is not None:
+                    assert self._provider_audit_context is not None
+                    assert audit_request_id is not None
+                    assert request_started_at is not None
+                    try:
+                        self._provider_audit.record_provider_failure(
+                            context=self._provider_audit_context,
+                            audit_request_id=audit_request_id,
+                            input_hash=input_hash,
+                            generation_config_hash=generation_config_hash,
+                            request_started_at=request_started_at,
+                            latency_seconds=latency,
+                            exception=exc,
+                            delegated_completion_token_limit=(
+                                delegated_completion_token_limit
+                            ),
+                        )
+                    except AuditPersistenceError:
+                        self._record_observed_cost(
+                            prompt_tokens=None,
+                            completion_tokens=None,
+                            latency_seconds=latency,
+                        )
+                        self._record(
+                            messages=serialized,
+                            schemas=schemas,
+                            status="audit_persistence_failure",
+                            difference="audit_persistence_failure",
+                            calls_before=calls_before,
+                            latency_seconds=latency,
+                        )
+                        raise
                 self._record_observed_cost(
                     prompt_tokens=None,
                     completion_tokens=None,
@@ -798,6 +874,40 @@ class RecordingModel(Model):
         ):
             prompt_tokens = None
             completion_tokens = None
+        if self._provider_audit is not None:
+            assert self._provider_audit_context is not None
+            assert audit_request_id is not None
+            assert request_started_at is not None
+            try:
+                self._provider_audit.record_response(
+                    context=self._provider_audit_context,
+                    audit_request_id=audit_request_id,
+                    input_hash=input_hash,
+                    generation_config_hash=generation_config_hash,
+                    message=result,
+                    request_started_at=request_started_at,
+                    latency_seconds=latency,
+                    delegated_completion_token_limit=(
+                        delegated_completion_token_limit
+                    ),
+                )
+            except AuditPersistenceError:
+                self._record_observed_cost(
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    latency_seconds=latency,
+                )
+                self._record(
+                    messages=serialized,
+                    schemas=schemas,
+                    status="audit_persistence_failure",
+                    difference="audit_persistence_failure",
+                    calls_before=calls_before,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    latency_seconds=latency,
+                )
+                raise
         violation = self._record_observed_cost(
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
@@ -816,6 +926,25 @@ class RecordingModel(Model):
             latency_seconds=latency,
         )
         return result
+
+    def record_parsing_outcome(
+        self,
+        message: ChatMessage,
+        *,
+        parsing_status: str,
+        exception: BaseException | None = None,
+        reason: str | None = None,
+    ) -> None:
+        """Persist the Agent parser result without adding it to checkpoint state."""
+
+        if self._provider_audit is None:
+            return
+        self._provider_audit.record_parsing_outcome(
+            message=message,
+            parsing_status=parsing_status,
+            exception=exception,
+            reason=reason,
+        )
 
 
 __all__ = [

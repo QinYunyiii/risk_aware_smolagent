@@ -16,7 +16,11 @@ import httpx2
 import openai
 from smolagents import OpenAIServerModel, Tool, ToolCallingAgent
 
-from risk_agent.monitoring import RuntimeState
+from risk_agent.monitoring import (
+    ProviderAuditContext,
+    ProviderResponseAudit,
+    RuntimeState,
+)
 from risk_agent.tools.calculation_tools import CalculatorTool
 
 from .checkpointable_tool_agent import CheckpointableToolCallingAgent
@@ -261,6 +265,8 @@ def create_checkpointable_benchmark_agent(
     max_steps: int,
     max_model_calls: int,
     agent_name: str,
+    provider_audit: ProviderResponseAudit | None = None,
+    provider_audit_context: ProviderAuditContext | None = None,
 ) -> tuple[CheckpointableToolCallingAgent, RecordingModel, OpenAIServerModel]:
     """Create the frozen Day 5 provider -> recorder -> Agent wiring.
 
@@ -280,6 +286,8 @@ def create_checkpointable_benchmark_agent(
             underlying,
             runtime_state=runtime_state,
             max_model_calls=max_model_calls,
+            provider_audit=provider_audit,
+            provider_audit_context=provider_audit_context,
         )
         agent = CheckpointableToolCallingAgent(
             tools=tools,

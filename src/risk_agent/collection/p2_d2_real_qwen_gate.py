@@ -35,7 +35,15 @@ from risk_agent.checkpoint import (
     EnvironmentCheckpointMetadata,
     RuntimeCheckpointMetadata,
 )
-from risk_agent.monitoring import BudgetState, ExecutionMonitor, JsonlTraceWriter, RuntimeState
+from risk_agent.monitoring import (
+    AuditPersistenceError,
+    BudgetState,
+    ExecutionMonitor,
+    JsonlTraceWriter,
+    ProviderAuditContext,
+    ProviderResponseAudit,
+    RuntimeState,
+)
 
 from .benchmark_tools import (
     CompletedToolReplayError,
@@ -177,6 +185,8 @@ def _response_type(message: Any) -> str:
 
 
 def _error_category(exc: BaseException) -> str:
+    if isinstance(exc, AuditPersistenceError):
+        return "audit_persistence_failure"
     if isinstance(exc, P2D2GateError):
         return exc.category
     if isinstance(exc, ModelServiceError):
@@ -224,6 +234,7 @@ class P2D2RealQwenGateRunner:
         self.clock = clock
         self.manager = CheckpointManager(self.run_directory / "checkpoints")
         self.tool_writer = JsonlTraceWriter(self.run_directory / "tool_trajectories.jsonl")
+        self.provider_audit = ProviderResponseAudit(self.run_directory / "audit")
         self.writers = {
             name: JsonlTraceWriter(self.run_directory / name)
             for name in REQUIRED_AUDIT_FILES
@@ -282,6 +293,25 @@ class P2D2RealQwenGateRunner:
             controller_type="qwen3_model",
             execution_mode="model_backed_smoke",
             created_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+    def _provider_audit_context(
+        self,
+        *,
+        task: TaskSpec,
+        attempt_index: int,
+        worker: WorkerConfig,
+        phase: str,
+    ) -> ProviderAuditContext:
+        return ProviderAuditContext(
+            run_id=self.run_id,
+            task_id=task.task_id,
+            attempt_index=attempt_index,
+            worker_id=worker.worker_id,
+            model_id=self.settings.model_id,
+            model_version=self.settings.model_version,
+            endpoint=worker.base_url,
+            phase=phase,
         )
 
     @staticmethod
@@ -398,6 +428,13 @@ class P2D2RealQwenGateRunner:
                 max_steps=10,
                 max_model_calls=10,
                 agent_name=f"p2_d2_source_{worker.worker_id.replace('-', '_')}",
+                provider_audit=self.provider_audit,
+                provider_audit_context=self._provider_audit_context(
+                    task=task,
+                    attempt_index=attempt_index,
+                    worker=worker,
+                    phase="source",
+                ),
             )
             source_stream = source_agent.run(task.prompt, stream=True)
             action_events: list[ActionStep] = []
@@ -606,6 +643,13 @@ class P2D2RealQwenGateRunner:
                 max_steps=10,
                 max_model_calls=10,
                 agent_name=f"p2_d2_restore_{worker.worker_id.replace('-', '_')}",
+                provider_audit=self.provider_audit,
+                provider_audit_context=self._provider_audit_context(
+                    task=task,
+                    attempt_index=attempt_index,
+                    worker=worker,
+                    phase="restore",
+                ),
             )
             budget = restored.manifest.runtime_state["budget_state"]
             restored_model.restore_model_calls_used(int(budget["model_calls_used"]))
@@ -838,6 +882,92 @@ class P2D2RealQwenGateRunner:
             },
         )
         return result
+
+    def run_single_t1(
+        self,
+        *,
+        tasks: Iterable[TaskSpec],
+        worker: WorkerConfig,
+    ) -> dict[str, Any]:
+        """Run only the frozen T1 diagnostic and stop after its one attempt.
+
+        A successful T1 is allowed to complete the existing checkpoint/restore path in
+        :meth:`run_task`; a failed T1 is recorded and returned without replacement,
+        retry, or advancement to T2. The five-task Gate remains a separate entry point.
+        """
+
+        selected = select_p2_d2_tasks(tasks)
+        task = selected[0]
+        if task.task_id != FIXED_TASK_IDS[0]:
+            raise P2D2GateError(
+                "configuration_failure", "Single diagnostic selection is not frozen T1"
+            )
+        if worker.worker_id != "worker-0":
+            raise P2D2GateError(
+                "configuration_failure", "T1 diagnostic requires worker-0"
+            )
+        result: dict[str, Any] | None = None
+        failure: dict[str, Any] | None = None
+        try:
+            result = self.run_task(task=task, worker=worker, attempt_index=1)
+            self._append("task_attempts.jsonl", result)
+        except Exception as exc:
+            failure = {
+                "record_type": "p2_d2_t1_diagnostic_attempt",
+                "run_id": self.run_id,
+                "task_id": task.task_id,
+                "attempt_index": 1,
+                "worker_id": worker.worker_id,
+                "passed": False,
+                "failure_category": _error_category(exc),
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+                "automatic_retry_performed": False,
+                "replacement_task_used": False,
+                **RESEARCH_FLAGS,
+            }
+            self._append("task_attempts.jsonl", failure)
+            for name in REQUIRED_AUDIT_FILES:
+                path = self.run_directory / name
+                if name in {"task_attempts.jsonl", "tool_trajectories.jsonl"}:
+                    continue
+                if not path.exists():
+                    self._append(
+                        name,
+                        {
+                            "run_id": self.run_id,
+                            "task_id": task.task_id,
+                            "attempt_index": 1,
+                            "status": "not_reached",
+                            "reason": "single_t1_diagnostic_failed",
+                            "failure_category": failure["failure_category"],
+                            **RESEARCH_FLAGS,
+                        },
+                    )
+        passed = result is not None and failure is None
+        summary = {
+            "run_id": self.run_id,
+            "mode": "single-t1-diagnostic",
+            "status": "PASS" if passed else "BLOCKED",
+            "passed": passed,
+            "diagnostic_task_count": 1,
+            "attempted_task_ids": [task.task_id],
+            "worker_ids": [worker.worker_id],
+            "attempt_count": 1,
+            "automatic_model_retries": 0,
+            "replacement_tasks": 0,
+            "t2_t5_started": False,
+            "checkpoint_created": bool(result),
+            "real_restore_requests": 1 if result is not None else 0,
+            "failure": failure,
+            "result": result,
+            **RESEARCH_FLAGS,
+        }
+        (self.run_directory / "gate_summary.json").write_text(
+            json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        return summary
 
     def run_fixed_gate(
         self,

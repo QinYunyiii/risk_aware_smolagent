@@ -17,7 +17,7 @@ from typing import Any
 import yaml
 
 from risk_agent.agent.agent_factory import RemoteAPIClient, verify_tls_endpoint
-from risk_agent.agent.worker_router import RemoteModelSettings
+from risk_agent.agent.worker_router import RemoteModelSettings, WorkerConfig
 from risk_agent.benchmark import generate_task_instances, load_task_templates, task_to_dict
 from risk_agent.benchmark.schema import validate_identifier
 from risk_agent.collection.day5_gate import (
@@ -34,7 +34,7 @@ from risk_agent.collection.p2_d2_real_qwen_gate import (
 )
 
 
-REMOTE_MODES = {"remote-preflight", "gate"}
+REMOTE_MODES = {"remote-preflight", "gate", "single-t1-diagnostic"}
 EXPECTED_WEIGHTS = {
     "config.json": "f7c4eadfbbf522470667b797a3c89be2524832d2d599797248dc304fff447c30",
     "model.safetensors.index.json": "f9fdbcb91c23971c13ec5d5f2573d2349e8f61f2f049371ec699281748fdb1bc",
@@ -191,9 +191,13 @@ def _validate_remote_evidence(value: dict[str, Any]) -> dict[str, Any]:
     return value
 
 
-def _api_preflight(settings: RemoteModelSettings) -> list[dict[str, Any]]:
+def _api_preflight(
+    settings: RemoteModelSettings,
+    *,
+    workers: tuple[WorkerConfig, ...] | None = None,
+) -> list[dict[str, Any]]:
     records = []
-    for worker in settings.workers:
+    for worker in workers or settings.workers:
         tls_latency = verify_tls_endpoint(settings, worker)
         client = RemoteAPIClient(settings, worker)
         try:
@@ -219,11 +223,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--mode",
-        choices=("local-preflight", "remote-preflight", "gate"),
+        choices=(
+            "local-preflight",
+            "remote-preflight",
+            "gate",
+            "single-t1-diagnostic",
+        ),
         default="local-preflight",
     )
     parser.add_argument("--run-id", default=None)
-    parser.add_argument("--output-root", default="runs/phase2_p2_d2_real_qwen")
+    parser.add_argument("--output-root", default=None)
     parser.add_argument("--gate-config", default="configs/p2_d2_real_qwen_gate.yaml")
     parser.add_argument("--remote-config", default="configs/remote_model.yaml")
     parser.add_argument("--remote-evidence", default=None)
@@ -248,13 +257,23 @@ def main(argv: list[str] | None = None) -> int:
         "chat_template_kwargs": {"enable_thinking": False},
     }:
         raise RuntimeError("Remote inference configuration differs from the frozen Gate")
+    diagnostic_workers = tuple(
+        worker for worker in settings.workers if worker.worker_id == "worker-0"
+    )
+    if args.mode == "single-t1-diagnostic" and len(diagnostic_workers) != 1:
+        raise RuntimeError("Single T1 diagnostic requires exactly one worker-0")
     templates = load_task_templates(gate_config["catalog_path"])
     tasks = generate_task_instances(templates, 2)
     catalog_audit = _catalog_audit(tasks, templates)
     if catalog_audit["canonical_catalog_hash"] != gate_config["canonical_catalog_hash"]:
         raise RuntimeError("Canonical P2-D1 catalog hash mismatch")
     run_id = validate_identifier(args.run_id or _default_run_id(args.mode), "run_id")
-    run_directory = create_unique_run_directory(args.output_root, run_id)
+    output_root = args.output_root or (
+        "runs/phase2_p2_d2_t1_diagnostic"
+        if args.mode == "single-t1-diagnostic"
+        else "runs/phase2_p2_d2_real_qwen"
+    )
+    run_directory = create_unique_run_directory(output_root, run_id)
     disk = shutil.disk_usage(run_directory)
     manifest = {
         "schema_version": 1,
@@ -272,9 +291,25 @@ def main(argv: list[str] | None = None) -> int:
             "inference": settings.inference,
             "workers": [
                 {"worker_id": item.worker_id, "endpoint": item.base_url}
-                for item in settings.workers
+                for item in (
+                    diagnostic_workers
+                    if args.mode == "single-t1-diagnostic"
+                    else settings.workers
+                )
             ],
         },
+        "diagnostic_scope": (
+            {
+                "task_ids": [FIXED_TASK_IDS[0]],
+                "worker_ids": ["worker-0"],
+                "max_attempts": 1,
+                "automatic_retries": 0,
+                "replacement_tasks": 0,
+                "t2_t5_allowed": False,
+            }
+            if args.mode == "single-t1-diagnostic"
+            else None
+        ),
         "versions": {
             "smolagents": version("smolagents"),
             "openai": version("openai"),
@@ -297,7 +332,20 @@ def main(argv: list[str] | None = None) -> int:
         **RESEARCH_FLAGS,
     }
     _write_json(run_directory / "run_manifest.json", manifest)
-    _write_json(run_directory / "task_selection.json", catalog_audit)
+    _write_json(
+        run_directory / "task_selection.json",
+        {
+            **catalog_audit,
+            **(
+                {
+                    "diagnostic_task_ids": [FIXED_TASK_IDS[0]],
+                    "diagnostic_worker_ids": ["worker-0"],
+                }
+                if args.mode == "single-t1-diagnostic"
+                else {}
+            ),
+        },
+    )
     try:
         if not manifest["local_disk_at_least_20gb"]:
             raise RuntimeError("Local disk has less than 20 GiB free")
@@ -316,7 +364,14 @@ def main(argv: list[str] | None = None) -> int:
         if args.remote_evidence is None:
             raise RuntimeError("Remote modes require --remote-evidence")
         evidence = _validate_remote_evidence(_read_json(args.remote_evidence))
-        workers = _api_preflight(settings)
+        workers = _api_preflight(
+            settings,
+            workers=(
+                diagnostic_workers
+                if args.mode == "single-t1-diagnostic"
+                else settings.workers
+            ),
+        )
         remote_preflight = {
             "evidence": evidence,
             "api_workers": workers,
@@ -346,7 +401,13 @@ def main(argv: list[str] | None = None) -> int:
             split_hash=catalog_audit["split_manifest_hash"],
             verifier_content_hash=sha256_file("src/risk_agent/benchmark/verifier.py"),
         )
-        summary = runner.run_fixed_gate(tasks=tasks, workers=settings.workers)
+        if args.mode == "single-t1-diagnostic":
+            summary = runner.run_single_t1(
+                tasks=tasks,
+                worker=diagnostic_workers[0],
+            )
+        else:
+            summary = runner.run_fixed_gate(tasks=tasks, workers=settings.workers)
         print(json.dumps(summary, ensure_ascii=False, indent=2))
         return 0 if summary["passed"] else 1
     except Exception as exc:
