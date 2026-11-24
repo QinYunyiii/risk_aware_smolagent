@@ -416,6 +416,17 @@ def test_synthetic_five_task_gate_passes_with_fixed_workers_and_t3_exactly_once(
         item["completion_tokens"] for item in summary["task_costs"]
     )
     assert len(requests) == 15
+    connection_events = _jsonl(run_directory / "connection_audit.jsonl")
+    assert sum(r["event"] == "provider_request_started" for r in connection_events) == 15
+    assert sum(r["event"] == "provider_request_finished" for r in connection_events) == 15
+    assert all(r["process_state"] == "UNKNOWN" for r in connection_events)
+    from scripts.run_p2_d2_real_qwen_gate import _artifact_manifest
+
+    artifacts = _artifact_manifest(run_directory)["artifacts"]
+    assert "connection_audit.jsonl" in {item["path"] for item in artifacts}
+    assert all(_sha256(run_directory / item["path"]) == item["sha256"] for item in artifacts)
+    for checkpoint in (run_directory / "checkpoints").rglob("*.json"):
+        assert "connection_audit" not in checkpoint.read_text()
     assert [request.url.host for request in requests] == [
         host
         for host in (
@@ -556,6 +567,7 @@ def test_worker_failure_has_no_failover_and_audit_persistence_failure_is_fail_cl
     assert summary["failure"]["worker_id"] == "worker-1"
     assert summary["worker_failovers"] == 0
     assert len(requests) == 4
+    assert summary["failure"]["failure_category"] == "infrastructure_failure"
     assert requests[-1].url.port == 8001
 
     audit_requests: list[httpx2.Request] = []
@@ -577,3 +589,49 @@ def test_worker_failure_has_no_failover_and_audit_persistence_failure_is_fail_cl
     assert audit_summary["attempted_task_ids"] == [FIXED_TASK_IDS[0]]
     assert len(audit_requests) == 1
     assert not (audit_directory / "tool_trajectories.jsonl").exists()
+
+
+@pytest.mark.parametrize("failure_kind", ["read_timeout", "tls", "connection", "http"])
+def test_t2_restore_transport_failure_preserves_checkpoint_and_stops(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure_kind: str
+) -> None:
+    import ssl
+
+    settings = _settings_1024(tmp_path, monkeypatch)
+    responses = _responses_for_all_tasks(tmp_path)[:5]
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        if responses:
+            return httpx2.Response(200, json=responses.pop(0))
+        if failure_kind == "http":
+            return httpx2.Response(503, json={"error": {"message": "synthetic unavailable"}})
+        if failure_kind == "read_timeout":
+            raise httpx2.ReadTimeout("synthetic read timeout", request=request)
+        if failure_kind == "tls":
+            raise httpx2.ConnectError("certificate verify failed", request=request) from ssl.SSLCertVerificationError("synthetic certificate")
+        raise httpx2.ConnectError("synthetic connection closed", request=request)
+
+    monkeypatch.setattr(agent_factory, "_http_client", lambda *a, **k: httpx2.Client(
+        transport=httpx2.MockTransport(handler), trust_env=False))
+    run_directory = create_unique_run_directory(tmp_path / "runs", f"restore_{failure_kind}")
+    summary = _runner(settings, run_directory).run_fixed_gate(tasks=_tasks(), workers=settings.workers)
+    assert summary['status'] == 'BLOCKED'
+    assert summary['completed_task_count'] == 1
+    assert summary['attempted_task_ids'] == list(FIXED_TASK_IDS[:2])
+    assert summary['failure']['failure_category'] == 'infrastructure_failure'
+    assert len(requests) == 6
+    assert requests[-1].url.port == 8001
+    assert len(list((run_directory / 'checkpoints').glob('*/manifest.json'))) == 2
+    provider = _jsonl(run_directory / 'audit/provider_response_audit.jsonl')[-1]
+    assert provider['prompt_tokens'] is None
+    assert provider['completion_tokens'] is None
+    events = _jsonl(run_directory / 'connection_audit.jsonl')
+    diagnosis = events[-1]['diagnosis']
+    assert diagnosis['connection_diagnostic'] == {
+        'read_timeout': 'provider_read_timeout', 'tls': 'tls_connection_failure',
+        'connection': 'provider_connection_failure', 'http': 'provider_http_error',
+    }[failure_kind]
+    assert diagnosis['root_cause_confidence'] == 'UNDETERMINED'
+    assert summary['automatic_model_retries'] == summary['worker_failovers'] == 0

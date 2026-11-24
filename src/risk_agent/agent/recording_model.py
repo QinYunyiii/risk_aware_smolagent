@@ -800,8 +800,10 @@ class RecordingModel(Model):
                 if self._provider_audit is not None
                 else None
             )
-            self.executed_calls += 1
             started = self._clock()
+            if self._provider_audit is not None:
+                self._provider_audit.request_started(self._provider_audit_context, audit_request_id)
+            self.executed_calls += 1
             try:
                 with self._scoped_underlying_limits(limits):
                     result = self.underlying.generate(

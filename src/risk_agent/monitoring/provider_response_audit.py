@@ -239,6 +239,7 @@ class ProviderResponseAudit:
         parsing_writer: _AuditWriter | None = None,
         id_factory: Callable[[], str] | None = None,
         wall_clock: Callable[[], str] = _utc_now,
+        connection_observer: Any = None,
     ) -> None:
         self.directory = Path(audit_directory)
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -249,6 +250,16 @@ class ProviderResponseAudit:
         self._parsing_writer = parsing_writer or JsonlTraceWriter(self.parsing_path)
         self._id_factory = id_factory or (lambda: f"local-{uuid.uuid4()}")
         self._wall_clock = wall_clock
+        self.connection_observer = connection_observer
+
+    def request_started(self, context: ProviderAuditContext, request_id: str) -> None:
+        if self.connection_observer is not None:
+            self.connection_observer.request_started(context.worker_id, request_id)
+
+    def request_finished(self, context: ProviderAuditContext, request_id: str,
+                         exception: BaseException | None = None) -> None:
+        if self.connection_observer is not None:
+            self.connection_observer.request_finished(context.worker_id, request_id, exception)
 
     def new_request_id(self) -> str:
         return self._id_factory()
@@ -362,7 +373,10 @@ class ProviderResponseAudit:
             "exception_type": None,
             "exception_message": None,
         }
-        self._append(self._response_writer, record, kind="provider response event")
+        try:
+            self._append(self._response_writer, record, kind="provider response event")
+        finally:
+            self.request_finished(context, audit_request_id)
         self.bind_message(message, audit_request_id)
 
     def record_provider_failure(
@@ -428,7 +442,10 @@ class ProviderResponseAudit:
             "exception_type": type(exception).__name__,
             "exception_message": _redact_text(str(exception)),
         }
-        self._append(self._response_writer, record, kind="provider failure event")
+        try:
+            self._append(self._response_writer, record, kind="provider failure event")
+        finally:
+            self.request_finished(context, audit_request_id, exception)
 
     def record_parsing_outcome(
         self,

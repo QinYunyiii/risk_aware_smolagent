@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
+import openai
 from smolagents.memory import ActionStep
 
 from risk_agent.agent import AgentStateAdapter, RecordingModel
@@ -191,6 +192,8 @@ def _error_category(exc: BaseException) -> str:
         return exc.category
     if isinstance(exc, ModelServiceError):
         return "infrastructure_failure"
+    if isinstance(exc, openai.APIError):
+        return "infrastructure_failure"
     if isinstance(exc, CompletedToolReplayError):
         return "replay_failure"
     name = type(exc).__name__.casefold()
@@ -229,6 +232,7 @@ class P2D2RealQwenGateRunner:
         experiment_config_version: str | None = None,
         diagnostic_mode: str = "single-t1-diagnostic",
         gate_mode: str = "gate",
+        connection_observer: Any = None,
     ) -> None:
         if not experiment_id or not diagnostic_mode or not gate_mode:
             raise ValueError("Experiment ID and execution modes must be non-empty")
@@ -248,7 +252,12 @@ class P2D2RealQwenGateRunner:
         self.gate_mode = gate_mode
         self.manager = CheckpointManager(self.run_directory / "checkpoints")
         self.tool_writer = JsonlTraceWriter(self.run_directory / "tool_trajectories.jsonl")
-        self.provider_audit = ProviderResponseAudit(self.run_directory / "audit")
+        if connection_observer is None:
+            from risk_agent.monitoring.connection_lifecycle import ConnectionLifecycle
+            connection_observer = ConnectionLifecycle(run_id, self.run_directory / "connection_audit.jsonl")
+        self.provider_audit = ProviderResponseAudit(
+            self.run_directory / "audit", connection_observer=connection_observer
+        )
         self.writers = {
             name: JsonlTraceWriter(self.run_directory / name)
             for name in REQUIRED_AUDIT_FILES
@@ -500,10 +509,18 @@ class P2D2RealQwenGateRunner:
                         },
                     )
                     raise P2D2GateError(
-                        classify_action_error(event.error),
+                        (
+                            "infrastructure_failure"
+                            if source_model.requests and source_model.requests[-1].status == "failed"
+                            else classify_action_error(event.error)
+                        ),
                         f"Source ActionStep {event.step_number} failed: {error_type}",
                     )
                 if len(runtime.tool_history) != len(action_events):
+                    if source_model.requests and source_model.requests[-1].status == "failed":
+                        raise P2D2GateError(
+                            "infrastructure_failure", "Provider failed before tool execution"
+                        )
                     if (
                         source_model.requests
                         and source_model.requests[-1].status

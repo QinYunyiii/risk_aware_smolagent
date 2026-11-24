@@ -29,6 +29,7 @@ from risk_agent.collection.p2_d2_real_qwen_gate import (
     P2D2RealQwenGateRunner,
     RESEARCH_FLAGS,
 )
+from risk_agent.monitoring.connection_lifecycle import ConnectionLifecycle
 
 try:  # Direct execution puts ``scripts/`` rather than the repo root on sys.path.
     from scripts.run_p2_d2_real_qwen_gate import (
@@ -85,6 +86,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--remote-evidence", default=None)
     parser.add_argument("--authorize-remote", action="store_true")
+    parser.add_argument("--connection-spec", default=None,
+                        help="Local private JSON with explicit SSH connection specs for both Workers")
     return parser
 
 
@@ -99,6 +102,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.remote_evidence is None:
             raise RuntimeError("1024-token full Gate requires --remote-evidence")
         remote_evidence = _validate_remote_evidence(_read_json(args.remote_evidence))
+        if args.connection_spec is None:
+            raise RuntimeError("Managed full Gate requires --connection-spec")
     else:
         remote_evidence = None
 
@@ -198,6 +203,7 @@ def main(argv: list[str] | None = None) -> int:
             "experiment_config_version": FULL_GATE_EXPERIMENT_CONFIG_VERSION_1024,
         },
     )
+    connections = ConnectionLifecycle(run_id, run_directory / "connection_audit.jsonl")
     try:
         if not manifest["local_disk_at_least_20gb"]:
             raise RuntimeError("Local disk has less than 20 GiB free")
@@ -220,6 +226,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(summary, ensure_ascii=False, indent=2))
             return 0
 
+        connections.launch(_read_json(args.connection_spec))
         remote_preflight = {
             "evidence": remote_evidence,
             "api_workers": _api_preflight(settings, workers=workers),
@@ -240,6 +247,7 @@ def main(argv: list[str] | None = None) -> int:
             experiment_id=FULL_GATE_EXPERIMENT_ID_1024,
             experiment_config_version=FULL_GATE_EXPERIMENT_CONFIG_VERSION_1024,
             gate_mode=FULL_GATE_MODE_1024,
+            connection_observer=connections,
         )
         summary = runner.run_fixed_gate(tasks=tasks, workers=workers)
         print(json.dumps(summary, ensure_ascii=False, indent=2))
@@ -263,7 +271,10 @@ def main(argv: list[str] | None = None) -> int:
             )
         raise
     finally:
-        _write_json(run_directory / "artifact_manifest.json", _artifact_manifest(run_directory))
+        try:
+            connections.close()
+        finally:
+            _write_json(run_directory / "artifact_manifest.json", _artifact_manifest(run_directory))
 
 
 if __name__ == "__main__":
