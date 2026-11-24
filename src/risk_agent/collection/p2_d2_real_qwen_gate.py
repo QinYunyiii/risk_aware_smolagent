@@ -202,6 +202,8 @@ def _error_category(exc: BaseException) -> str:
 def classify_action_error(error: BaseException) -> str:
     """Separate malformed model output from a local task-tool failure."""
 
+    if isinstance(error, AuditPersistenceError):
+        return "audit_persistence_failure"
     if type(error).__name__ in {"AgentParsingError", "AgentGenerationError"}:
         return "model_behavior_failure"
     return "task_execution_failure"
@@ -226,9 +228,10 @@ class P2D2RealQwenGateRunner:
         experiment_id: str = EXPERIMENT_ID,
         experiment_config_version: str | None = None,
         diagnostic_mode: str = "single-t1-diagnostic",
+        gate_mode: str = "gate",
     ) -> None:
-        if not experiment_id or not diagnostic_mode:
-            raise ValueError("Experiment ID and diagnostic mode must be non-empty")
+        if not experiment_id or not diagnostic_mode or not gate_mode:
+            raise ValueError("Experiment ID and execution modes must be non-empty")
         if experiment_config_version is not None and not experiment_config_version:
             raise ValueError("Experiment config version must be non-empty when supplied")
         self.settings = settings
@@ -242,6 +245,7 @@ class P2D2RealQwenGateRunner:
         self.experiment_id = experiment_id
         self.experiment_config_version = experiment_config_version
         self.diagnostic_mode = diagnostic_mode
+        self.gate_mode = gate_mode
         self.manager = CheckpointManager(self.run_directory / "checkpoints")
         self.tool_writer = JsonlTraceWriter(self.run_directory / "tool_trajectories.jsonl")
         self.provider_audit = ProviderResponseAudit(self.run_directory / "audit")
@@ -500,6 +504,15 @@ class P2D2RealQwenGateRunner:
                         f"Source ActionStep {event.step_number} failed: {error_type}",
                     )
                 if len(runtime.tool_history) != len(action_events):
+                    if (
+                        source_model.requests
+                        and source_model.requests[-1].status
+                        == "audit_persistence_failure"
+                    ):
+                        raise P2D2GateError(
+                            "audit_persistence_failure",
+                            "Provider response audit failed before tool execution",
+                        )
                     raise P2D2GateError(
                         "model_behavior_failure",
                         "Dependent calls must occur in separate single-call ActionSteps",
@@ -1020,8 +1033,15 @@ class P2D2RealQwenGateRunner:
         workers: tuple[WorkerConfig, ...],
     ) -> dict[str, Any]:
         selected = select_p2_d2_tasks(tasks)
-        if len(workers) < 2:
+        if self.experiment_config_version is None and len(workers) < 2:
             raise P2D2GateError("configuration_failure", "Two Workers are required")
+        if self.experiment_config_version is not None and tuple(
+            worker.worker_id for worker in workers
+        ) != ("worker-0", "worker-1"):
+            raise P2D2GateError(
+                "configuration_failure",
+                "Frozen Gate requires exactly worker-0 then worker-1",
+            )
         results: list[dict[str, Any]] = []
         failure: dict[str, Any] | None = None
         for index, task in enumerate(selected, 1):
@@ -1033,6 +1053,14 @@ class P2D2RealQwenGateRunner:
             except Exception as exc:
                 failure = {
                     "record_type": "p2_d2_real_qwen_attempt",
+                    **(
+                        {
+                            "experiment_id": self.experiment_id,
+                            "experiment_config_version": self.experiment_config_version,
+                        }
+                        if self.experiment_config_version is not None
+                        else {}
+                    ),
                     "run_id": self.run_id,
                     "task_id": task.task_id,
                     "attempt_index": index,
@@ -1041,6 +1069,15 @@ class P2D2RealQwenGateRunner:
                     "failure_category": _error_category(exc),
                     "error_type": type(exc).__name__,
                     "error_message": str(exc),
+                    **(
+                        {
+                            "automatic_retry_performed": False,
+                            "replacement_task_used": False,
+                            "worker_failover_performed": False,
+                        }
+                        if self.experiment_config_version is not None
+                        else {}
+                    ),
                     **RESEARCH_FLAGS,
                 }
                 self._append("task_attempts.jsonl", failure)
@@ -1063,8 +1100,52 @@ class P2D2RealQwenGateRunner:
                         )
                 break
         passed = len(results) == 5 and failure is None
+        versioned_summary: dict[str, Any] = {}
+        if self.experiment_config_version is not None:
+            task_costs = [
+                {
+                    "task_id": item["task_id"],
+                    "worker_id": item["worker_id"],
+                    "prompt_tokens": sum(item["prompt_tokens"].values()),
+                    "completion_tokens": sum(item["completion_tokens"].values()),
+                    "model_latency_seconds": sum(
+                        item["model_latency_seconds"].values()
+                    ),
+                    "tool_latency_seconds": item["tool_latency_seconds"],
+                    "wall_clock_seconds": item["wall_clock_seconds"],
+                }
+                for item in results
+            ]
+            versioned_summary = {
+                "mode": self.gate_mode,
+                "experiment_id": self.experiment_id,
+                "experiment_config_version": self.experiment_config_version,
+                "attempted_task_ids": [item["task_id"] for item in results]
+                + ([failure["task_id"]] if failure is not None else []),
+                "attempt_count": len(results) + (1 if failure is not None else 0),
+                "worker_schedule": [
+                    workers[(index - 1) % len(workers)].worker_id
+                    for index in range(1, len(results) + (1 if failure else 0) + 1)
+                ],
+                "automatic_model_retries": 0,
+                "replacement_tasks": 0,
+                "worker_failovers": 0,
+                "stop_on_first_failure": True,
+                "task_costs": task_costs,
+                "gate_cost_totals": {
+                    key: sum(item[key] for item in task_costs)
+                    for key in (
+                        "prompt_tokens",
+                        "completion_tokens",
+                        "model_latency_seconds",
+                        "tool_latency_seconds",
+                        "wall_clock_seconds",
+                    )
+                },
+            }
         summary = {
             "run_id": self.run_id,
+            **versioned_summary,
             "status": "PASS" if passed else "BLOCKED",
             "passed": passed,
             "fixed_task_count": 5,

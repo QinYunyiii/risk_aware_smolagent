@@ -1,0 +1,56 @@
+protocol_id: risk-continue-v2.0.0
+checkpoint_schema_version: 2.0.0
+experiment_id: p2_d2_full_gate_1024
+experiment_config_version: p2-d2-full-gate-1024-v1
+generation_config_version: qwen3-8b-completion-1024-v1
+baseline_experiment_id: p2_d2_real_qwen_gate
+baseline_gate_config_sha256: 56f1428791a76c8a5e8eed982251cc5d030472e55ebcbd8628d4a111ad5d89e5
+baseline_remote_model_sha256: 1a347dcf96848d7ea4ea390987d0ebe4526b06f6143d70c5f379903feccc7436
+verified_t1_1024_config_sha256: c3ff6fca4d00402567de8f6f183a9ae0333399ab66af1d50fc0a50a69bde93b3
+verified_remote_model_1024_sha256: 4731cb56c128e3c150712745e25b9881fd8c19d64a37fd87a97f48ae3a5a57a5
+catalog_path: configs/task_templates_v2.yaml
+catalog_file_sha256: 3cae7519dffd97cd105f1bfca87183f34d15bc7e613b611a44a810d4dfff1d4f
+canonical_catalog_hash: c37f9bb3dee6c8493e8a174aa977595769caf6b7cff8e1601bb60ccdc5b9d64c
+fixed_task_ids:
+  - p2_data_region_units_sum_001
+  - p2_file_report_control_001
+  - p2_api_process_control_001
+  - p2_logic_chain_control_001
+  - p2_data_region_units_sum_002
+worker_schedule:
+  - worker-0
+  - worker-1
+  - worker-0
+  - worker-1
+  - worker-0
+fault_injection_enabled: false
+changed_factor:
+  name: max_completion_tokens
+  baseline: 256
+  full_gate: 1024
+limits:
+  max_agent_steps: 10
+  max_model_calls: 10
+  max_tool_calls: 12
+  max_total_tokens: 50000
+  max_completion_tokens: 1024
+  max_context_tokens: 8192
+  request_timeout_seconds: 120
+  task_wall_clock_timeout_seconds: 900
+  http_automatic_retries: 0
+execution_controls:
+  serial_execution: true
+  max_attempts_per_task: 1
+  stop_on_first_failure: true
+  replacement_tasks: 0
+  worker_failover: false
+  source_restore_same_worker: true
+  execute_restored_response: false
+research_flags:
+  formal_experiment: false
+  execution_mode: model_backed_smoke
+  controller_type: qwen3_model
+  research_dataset_eligible: false
+  y_continue: null
+  y_retry: null
+  y_replan: null
