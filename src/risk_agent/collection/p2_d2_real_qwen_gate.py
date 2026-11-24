@@ -223,7 +223,14 @@ class P2D2RealQwenGateRunner:
             create_checkpointable_benchmark_agent
         ),
         clock: Callable[[], float] = time.monotonic,
+        experiment_id: str = EXPERIMENT_ID,
+        experiment_config_version: str | None = None,
+        diagnostic_mode: str = "single-t1-diagnostic",
     ) -> None:
+        if not experiment_id or not diagnostic_mode:
+            raise ValueError("Experiment ID and diagnostic mode must be non-empty")
+        if experiment_config_version is not None and not experiment_config_version:
+            raise ValueError("Experiment config version must be non-empty when supplied")
         self.settings = settings
         self.run_directory = Path(run_directory).expanduser().resolve()
         self.run_id = run_id
@@ -232,6 +239,9 @@ class P2D2RealQwenGateRunner:
         self.verifier_content_hash = verifier_content_hash
         self.agent_factory = agent_factory
         self.clock = clock
+        self.experiment_id = experiment_id
+        self.experiment_config_version = experiment_config_version
+        self.diagnostic_mode = diagnostic_mode
         self.manager = CheckpointManager(self.run_directory / "checkpoints")
         self.tool_writer = JsonlTraceWriter(self.run_directory / "tool_trajectories.jsonl")
         self.provider_audit = ProviderResponseAudit(self.run_directory / "audit")
@@ -256,7 +266,7 @@ class P2D2RealQwenGateRunner:
         return ExecutionMonitor(
             writer=self.tool_writer,
             runtime_state=runtime,
-            experiment_id=EXPERIMENT_ID,
+            experiment_id=self.experiment_id,
             run_id=self.run_id,
             task_id=task.task_id,
             template_id=task.template_id,
@@ -271,6 +281,11 @@ class P2D2RealQwenGateRunner:
                 "protocol_id": PROTOCOL_ID,
                 "task_run_id": task_run_id,
                 "split": task.split.value,
+                **(
+                    {"experiment_config_version": self.experiment_config_version}
+                    if self.experiment_config_version is not None
+                    else {}
+                ),
                 **RESEARCH_FLAGS,
             },
         )
@@ -279,7 +294,7 @@ class P2D2RealQwenGateRunner:
         self, *, task_run_id: str, worker: WorkerConfig
     ) -> CheckpointIdentityV2:
         return CheckpointIdentityV2(
-            experiment_id=EXPERIMENT_ID,
+            experiment_id=self.experiment_id,
             run_id=self.run_id,
             task_run_id=task_run_id,
             model_version=self.settings.model_version,
@@ -405,6 +420,11 @@ class P2D2RealQwenGateRunner:
             tool_state={
                 "protocol_id": PROTOCOL_ID,
                 "fault_injection_enabled": False,
+                **(
+                    {"experiment_config_version": self.experiment_config_version}
+                    if self.experiment_config_version is not None
+                    else {}
+                ),
             },
             budget=BudgetState(50_000, 12, 900.0),
         )
@@ -721,6 +741,14 @@ class P2D2RealQwenGateRunner:
 
         result = {
             "record_type": "p2_d2_real_qwen_attempt",
+            **(
+                {
+                    "experiment_id": self.experiment_id,
+                    "experiment_config_version": self.experiment_config_version,
+                }
+                if self.experiment_config_version is not None
+                else {}
+            ),
             "run_id": self.run_id,
             "task_run_id": task_run_id,
             "checkpoint_id": checkpoint_id,
@@ -914,6 +942,14 @@ class P2D2RealQwenGateRunner:
         except Exception as exc:
             failure = {
                 "record_type": "p2_d2_t1_diagnostic_attempt",
+                **(
+                    {
+                        "experiment_id": self.experiment_id,
+                        "experiment_config_version": self.experiment_config_version,
+                    }
+                    if self.experiment_config_version is not None
+                    else {}
+                ),
                 "run_id": self.run_id,
                 "task_id": task.task_id,
                 "attempt_index": 1,
@@ -947,7 +983,15 @@ class P2D2RealQwenGateRunner:
         passed = result is not None and failure is None
         summary = {
             "run_id": self.run_id,
-            "mode": "single-t1-diagnostic",
+            "mode": self.diagnostic_mode,
+            **(
+                {
+                    "experiment_id": self.experiment_id,
+                    "experiment_config_version": self.experiment_config_version,
+                }
+                if self.experiment_config_version is not None
+                else {}
+            ),
             "status": "PASS" if passed else "BLOCKED",
             "passed": passed,
             "diagnostic_task_count": 1,
