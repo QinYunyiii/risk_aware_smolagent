@@ -54,9 +54,22 @@ from .initial_trajectory import (
     log_completeness,
     select_initial_tasks,
 )
+from .p2_d2_real_qwen_gate import (
+    FIXED_TASK_IDS as P2_D2_FIXED_TASK_IDS,
+    P2D2GateError,
+    P2D2RealQwenGateRunner,
+    RESEARCH_FLAGS as P2_D2_RESEARCH_FLAGS,
+    classify_action_error,
+    select_p2_d2_tasks,
+    validate_first_dependency,
+)
 
 __all__ = [
     "InitialTrajectoryRunner",
+    "P2D2GateError",
+    "P2D2RealQwenGateRunner",
+    "P2_D2_FIXED_TASK_IDS",
+    "P2_D2_RESEARCH_FLAGS",
     "B4_RESEARCH_FLAGS",
     "B4ConfigurationError",
     "B4SmokeGateRunner",
@@ -82,6 +95,7 @@ __all__ = [
     "audit_checkpoint_run",
     "b4_plan_sha256",
     "b4_run_manifest",
+    "classify_action_error",
     "canonical_tool_call_signature",
     "classify_task_status",
     "capture_local_tool_adapter_state",
@@ -93,7 +107,9 @@ __all__ = [
     "load_b4_smoke_plan",
     "run_b4_local_preflight",
     "select_initial_tasks",
+    "select_p2_d2_tasks",
     "select_day5_candidates",
     "restore_local_tool_adapter_state",
     "validate_b4_plan",
+    "validate_first_dependency",
 ]

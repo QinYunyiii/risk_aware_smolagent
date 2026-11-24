@@ -1,0 +1,28 @@
+protocol_id: risk-continue-v2.0.0
+experiment_id: p2_d2_real_qwen_gate
+catalog_path: configs/task_templates_v2.yaml
+canonical_catalog_hash: c37f9bb3dee6c8493e8a174aa977595769caf6b7cff8e1601bb60ccdc5b9d64c
+fixed_task_ids:
+  - p2_data_region_units_sum_001
+  - p2_file_report_control_001
+  - p2_api_process_control_001
+  - p2_logic_chain_control_001
+  - p2_data_region_units_sum_002
+fault_injection_enabled: false
+limits:
+  max_agent_steps: 10
+  max_model_calls: 10
+  max_tool_calls: 12
+  max_total_tokens: 50000
+  max_completion_tokens: 256
+  max_context_tokens: 8192
+  request_timeout_seconds: 120
+  task_wall_clock_timeout_seconds: 900
+research_flags:
+  formal_experiment: false
+  execution_mode: model_backed_smoke
+  controller_type: qwen3_model
+  research_dataset_eligible: false
+  y_continue: null
+  y_retry: null
+  y_replan: null
