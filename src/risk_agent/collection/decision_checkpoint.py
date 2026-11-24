@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 from typing import Any
 
@@ -113,6 +114,14 @@ class DecisionCheckpointCapture:
             self._reject("canonical_messages_do_not_end_in_tool_response", event)
 
         agent_snapshot = AgentStateAdapter.capture(agent)
+        # AgentStateSnapshot is the authority for model-visible memory.  Keep the
+        # RuntimeState projection byte-for-byte aligned at the capture boundary so
+        # runtime-only consumers never observe the historical empty placeholder used
+        # by the early B2 harness.
+        prior_runtime_memory = runtime_state.agent_memory
+        runtime_state.agent_memory = copy.deepcopy(
+            agent_snapshot.payload["memory"]["steps"]
+        )
         invariants = CaptureInvariants(
             observation_in_memory=agent.memory.steps[-1] is event,
             next_model_request_not_started=(agent.model.attempted_calls == model_calls_before),
@@ -121,16 +130,20 @@ class DecisionCheckpointCapture:
             snapshot_synchronous=True,
             verifier_not_run=not verifier_has_run,
         )
-        snapshot = manager.snapshot_v2(
-            checkpoint_id=checkpoint_id,
-            environment=environment,
-            runtime_state=runtime_state,
-            agent_state_snapshot=agent_snapshot,
-            identity=identity,
-            runtime_metadata=runtime_metadata,
-            environment_metadata=environment_metadata,
-            capture_invariants=invariants,
-        )
+        try:
+            snapshot = manager.snapshot_v2(
+                checkpoint_id=checkpoint_id,
+                environment=environment,
+                runtime_state=runtime_state,
+                agent_state_snapshot=agent_snapshot,
+                identity=identity,
+                runtime_metadata=runtime_metadata,
+                environment_metadata=environment_metadata,
+                capture_invariants=invariants,
+            )
+        except Exception:
+            runtime_state.agent_memory = prior_runtime_memory
+            raise
         model_calls_after = agent.model.model_calls_used
         if model_calls_after != model_calls_before or agent.model.attempted_calls != model_calls_before:
             raise RuntimeError("Checkpoint capture advanced the model boundary")

@@ -416,6 +416,7 @@ def _identity_config(
         "prompt_templates": agent_snapshot.payload["prompt_templates"],
     }
     return {
+        "seed": identity["seed"],
         "model_id": identity["model_id"],
         "model_version": identity["model_version"],
         "worker_id": identity["worker_id"],
@@ -695,6 +696,7 @@ def snapshot_v2(
             "instance_id": task.instance_id,
             "split": task.split.value,
             "checkpoint_id": checkpoint_id,
+            "seed": task.seed,
             "step_index": agent["step_number"],
             "model_id": extracted["model_id"],
             "model_version": identity.model_version,
@@ -854,7 +856,7 @@ def _expected_identity_config(
         "system_prompt": agent_snapshot.payload["memory"]["system_prompt"],
         "prompt_templates": agent_snapshot.payload["prompt_templates"],
     }
-    return {
+    result = {
         "model_id": identity["model_id"],
         "model_version": identity["model_version"],
         "worker_id": identity["worker_id"],
@@ -868,6 +870,12 @@ def _expected_identity_config(
         "split_manifest_hash": identity.get("split_manifest_hash"),
         "checkpoint_schema_version": CHECKPOINT_SCHEMA_VERSION,
     }
+    # Schema 2.0.0 checkpoints created before P2-D2 did not carry seed in the
+    # identity section.  Preserve their exact identity hash while requiring every
+    # newly written checkpoint to bind seed into identity_config.
+    if "seed" in identity:
+        result["seed"] = identity["seed"]
+    return result
 
 
 def _verify_v2_payload(
@@ -893,6 +901,10 @@ def _verify_v2_payload(
         or manifest.identity["task_id"] != task.task_id
         or manifest.identity["template_id"] != task.template_id
         or manifest.identity["instance_id"] != task.instance_id
+        or (
+            "seed" in manifest.identity
+            and manifest.identity["seed"] != task.seed
+        )
         or task.split is None
         or manifest.identity["split"] != task.split.value
     ):

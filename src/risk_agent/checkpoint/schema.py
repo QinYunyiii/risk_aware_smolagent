@@ -181,10 +181,17 @@ def _validate_identity(value: Any) -> None:
         "model_version", "worker_id", "prompt_version", "tool_version",
         "verifier_version", "controller_type", "execution_mode", "created_at",
     }
-    _exact_keys(identity, required, {"catalog_hash", "split_manifest_hash"}, "identity")
+    _exact_keys(
+        identity,
+        required,
+        {"catalog_hash", "split_manifest_hash", "seed"},
+        "identity",
+    )
     for field in required - {"step_index", "split"}:
         _text(identity[field], f"identity.{field}")
     _integer(identity["step_index"], "identity.step_index", 1)
+    if "seed" in identity:
+        _integer(identity["seed"], "identity.seed", 0)
     if identity["split"] not in {"train", "validation", "test"}:
         raise CheckpointSchemaError("identity.split is invalid")
     if identity["controller_type"] != "qwen3_model":
