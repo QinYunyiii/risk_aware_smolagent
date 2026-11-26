@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+from dataclasses import replace
 import json
 import os
 import time
@@ -233,6 +234,7 @@ class P2D2RealQwenGateRunner:
         diagnostic_mode: str = "single-t1-diagnostic",
         gate_mode: str = "gate",
         connection_observer: Any = None,
+        task_prompts: Mapping[str, str] | None = None,
     ) -> None:
         if not experiment_id or not diagnostic_mode or not gate_mode:
             raise ValueError("Experiment ID and execution modes must be non-empty")
@@ -250,6 +252,14 @@ class P2D2RealQwenGateRunner:
         self.experiment_config_version = experiment_config_version
         self.diagnostic_mode = diagnostic_mode
         self.gate_mode = gate_mode
+        self.task_prompts = dict(task_prompts or {})
+        if self.task_prompts:
+            from .p2_d2_completion_budget import (
+                EXACT_IDENTIFIER_TASK, EXACT_IDENTIFIER_PROMPT, EXACT_IDENTIFIER_VERSION,
+            )
+            if (self.task_prompts != {EXACT_IDENTIFIER_TASK: EXACT_IDENTIFIER_PROMPT}
+                    or self.experiment_config_version != EXACT_IDENTIFIER_VERSION):
+                raise ValueError("Only the explicitly versioned T3 presentation may be overridden")
         self.manager = CheckpointManager(self.run_directory / "checkpoints")
         self.tool_writer = JsonlTraceWriter(self.run_directory / "tool_trajectories.jsonl")
         if connection_observer is None:
@@ -420,6 +430,10 @@ class P2D2RealQwenGateRunner:
     ) -> dict[str, Any]:
         if task.task_id != FIXED_TASK_IDS[attempt_index - 1]:
             raise P2D2GateError("configuration_failure", "Task order differs from frozen Gate")
+        if task.task_id in self.task_prompts:
+            # Keep the actual TaskSpec and Agent memory identical. Checkpoint v2
+            # must continue rejecting mismatched task prompts without exceptions.
+            task = replace(task, prompt=self.task_prompts[task.task_id])
         wall_started = self.clock()
         task_run_id = f"{self.run_id}_{task.task_id}_attempt_{attempt_index:03d}"
         checkpoint_id = f"checkpoint_{task.task_id}_{attempt_index:03d}"

@@ -6,13 +6,14 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+from dataclasses import replace
 from datetime import datetime, timezone
 from importlib.metadata import version
 from pathlib import Path
 
 from risk_agent.agent.agent_state_adapter import canonical_hash
 from risk_agent.agent.worker_router import RemoteModelSettings, WorkerConfig
-from risk_agent.benchmark import generate_task_instances, load_task_templates
+from risk_agent.benchmark import generate_task_instances, load_task_templates, task_to_dict
 from risk_agent.benchmark.schema import validate_identifier
 from risk_agent.collection.day5_gate import create_unique_run_directory, sha256_file
 from risk_agent.collection.p2_d2_completion_budget import (
@@ -22,6 +23,7 @@ from risk_agent.collection.p2_d2_completion_budget import (
     FULL_GATE_WORKER_SCHEDULE,
     GENERATION_CONFIG_VERSION_1024,
     load_full_gate_1024_profile,
+    load_exact_identifier_prompt_profile,
     validate_completion_budget_settings,
 )
 from risk_agent.collection.p2_d2_real_qwen_gate import (
@@ -88,6 +90,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--authorize-remote", action="store_true")
     parser.add_argument("--connection-spec", default=None,
                         help="Local private JSON with explicit SSH connection specs for both Workers")
+    parser.add_argument("--task-prompt-profile", default=None,
+                        help="Separate approved T3 exact-identifier presentation profile")
     return parser
 
 
@@ -121,6 +125,16 @@ def main(argv: list[str] | None = None) -> int:
         raise RuntimeError("Canonical P2-D1 catalog hash mismatch")
     if tuple(item["task_id"] for item in catalog_audit["fixed_tasks"]) != FIXED_TASK_IDS:
         raise RuntimeError("Catalog audit did not preserve the frozen five-task order")
+    prompt_profile = (load_exact_identifier_prompt_profile(args.task_prompt_profile, tasks)
+                      if args.task_prompt_profile else None)
+    experiment_version = (prompt_profile["experiment_config_version"] if prompt_profile
+                          else profile.experiment_config_version)
+    task_prompts = {prompt_profile["task_id"]: prompt_profile["prompt"]} if prompt_profile else {}
+    if prompt_profile:
+        original_task = next(t for t in tasks if t.task_id == prompt_profile["task_id"])
+        prompt_profile["original_task_spec_hash"] = canonical_hash(task_to_dict(original_task))
+        prompt_profile["effective_task_spec_hash"] = canonical_hash(task_to_dict(
+            replace(original_task, prompt=prompt_profile["prompt"])))
 
     run_id = validate_identifier(args.run_id or _default_run_id(args.mode), "run_id")
     run_directory = create_unique_run_directory(args.output_root, run_id)
@@ -130,7 +144,9 @@ def main(argv: list[str] | None = None) -> int:
         "protocol_id": profile.protocol_id,
         "checkpoint_schema_version": profile.checkpoint_schema_version,
         "experiment_id": profile.experiment_id,
-        "experiment_config_version": profile.experiment_config_version,
+        "experiment_config_version": experiment_version,
+        "baseline_experiment_config_version": profile.experiment_config_version,
+        "task_prompt_profile": prompt_profile,
         "generation_config_version": profile.generation_config_version,
         "run_id": run_id,
         "mode": args.mode,
@@ -200,7 +216,7 @@ def main(argv: list[str] | None = None) -> int:
             "gate_task_ids": list(profile.fixed_task_ids),
             "gate_worker_schedule": list(profile.worker_schedule),
             "experiment_id": FULL_GATE_EXPERIMENT_ID_1024,
-            "experiment_config_version": FULL_GATE_EXPERIMENT_CONFIG_VERSION_1024,
+            "experiment_config_version": experiment_version,
         },
     )
     connections = ConnectionLifecycle(run_id, run_directory / "connection_audit.jsonl")
@@ -212,7 +228,7 @@ def main(argv: list[str] | None = None) -> int:
                 "run_id": run_id,
                 "mode": args.mode,
                 "experiment_id": FULL_GATE_EXPERIMENT_ID_1024,
-                "experiment_config_version": FULL_GATE_EXPERIMENT_CONFIG_VERSION_1024,
+                "experiment_config_version": experiment_version,
                 "generation_config_version": GENERATION_CONFIG_VERSION_1024,
                 "completion_token_limit": 1024,
                 "fixed_task_ids": list(FIXED_TASK_IDS),
@@ -245,7 +261,8 @@ def main(argv: list[str] | None = None) -> int:
             split_hash=catalog_audit["split_manifest_hash"],
             verifier_content_hash=sha256_file("src/risk_agent/benchmark/verifier.py"),
             experiment_id=FULL_GATE_EXPERIMENT_ID_1024,
-            experiment_config_version=FULL_GATE_EXPERIMENT_CONFIG_VERSION_1024,
+            experiment_config_version=experiment_version,
+            task_prompts=task_prompts,
             gate_mode=FULL_GATE_MODE_1024,
             connection_observer=connections,
         )
@@ -261,7 +278,7 @@ def main(argv: list[str] | None = None) -> int:
                     "run_id": run_id,
                     "mode": args.mode,
                     "experiment_id": FULL_GATE_EXPERIMENT_ID_1024,
-                    "experiment_config_version": FULL_GATE_EXPERIMENT_CONFIG_VERSION_1024,
+                    "experiment_config_version": experiment_version,
                     "status": "BLOCKED",
                     "passed": False,
                     "error_type": type(exc).__name__,

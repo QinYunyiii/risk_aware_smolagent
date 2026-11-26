@@ -1,0 +1,84 @@
+{
+  "kind": "actual_retained_stage_b_openssl_summaries_not_unfiltered_output",
+  "source_run_id": "p2_d2_remote_local_tls_isolation_20261125_001",
+  "source_trace_sha256": "b54f900c4923b045e23479ff1399449f3b3e98d4b206d3a7594496d7237b8f98",
+  "source_original_manifest_sha256": "0ca1ffe41dd1e81064cc455a404c1c3fefd3108f100150ef0b86f137d3a335f2",
+  "version": "OpenSSL 3.0.2 15 Mar 2022 (Library: OpenSSL 3.0.2 15 Mar 2022)",
+  "historical_category": "DIAGNOSTIC_INCONCLUSIVE",
+  "lines": [
+    {
+      "stream": "stderr",
+      "text": "SSL_connect:before SSL initialization"
+    },
+    {
+      "stream": "stdout",
+      "text": ">>> TLS 1.3, Handshake [length 0132], ClientHello"
+    },
+    {
+      "stream": "stderr",
+      "text": "SSL_connect:SSLv3/TLS write client hello"
+    },
+    {
+      "stream": "stdout",
+      "text": "<<< TLS 1.3, Handshake [length 007a], ServerHello"
+    },
+    {
+      "stream": "stderr",
+      "text": "SSL_connect:SSLv3/TLS write client hello"
+    },
+    {
+      "stream": "stderr",
+      "text": "SSL_connect:SSLv3/TLS read server hello"
+    },
+    {
+      "stream": "stdout",
+      "text": "<<< TLS 1.3, Handshake [length 01ae], Certificate"
+    },
+    {
+      "stream": "stderr",
+      "text": "SSL_connect:TLSv1.3 read encrypted extensions"
+    },
+    {
+      "stream": "stderr",
+      "text": "SSL_connect:SSLv3/TLS read server certificate"
+    },
+    {
+      "stream": "stderr",
+      "text": "SSL_connect:TLSv1.3 read server certificate verify"
+    },
+    {
+      "stream": "stderr",
+      "text": "SSL_connect:SSLv3/TLS read finished"
+    },
+    {
+      "stream": "stderr",
+      "text": "SSL_connect:SSLv3/TLS write change cipher spec"
+    },
+    {
+      "stream": "stderr",
+      "text": "SSL_connect:SSLv3/TLS write finished"
+    },
+    {
+      "stream": "stderr",
+      "text": "Verification: OK"
+    },
+    {
+      "stream": "stdout",
+      "text": ">>> TLS 1.3, Alert [length 0002], warning close_notify"
+    }
+  ],
+  "outcome": {
+    "returncode": 0,
+    "timed_out": false,
+    "elapsed_seconds": 0.11994835454970598,
+    "owned_pid": 401965,
+    "deadline_seconds": 5.0,
+    "stdin_delivery_error": [],
+    "started_at_utc": "2026-11-24T19:02:30.715790+00:00",
+    "started_monotonic_ns": 5666362566235084,
+    "ended_at_utc": "2026-11-24T19:02:30.835740+00:00",
+    "ended_monotonic_ns": 5666362686202735,
+    "process_start_ticks": "566636256",
+    "owned_child_reaped": true
+  }
+}

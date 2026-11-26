@@ -170,6 +170,7 @@ def test_ssh_launch_uses_independent_foreground_child_no_shell(monkeypatch, tmp_
         spec=dict(local_port=8000, remote_port=8000, target="user@example.invalid",
                   ssh_port=2222, identity_file="explicit-key", known_hosts_file="known-hosts"))
     assert captured['start_new_session'] is True
+    assert '-v' in captured['command']  # Native authentication/forwarding evidence stays in private stderr.
     assert '-f' not in captured['command']
     assert 'StrictHostKeyChecking=yes' in captured['command']
     assert 'ControlMaster=no' in captured['command']
@@ -230,3 +231,52 @@ def test_existing_port_never_adopted_or_cleaned(monkeypatch, tmp_path):
                  factory=lambda **k: pytest.fail('must not launch'))
     c.close()
     assert c.adapters == {}
+
+
+def test_explicit_ipqos_profile_preserves_strict_forwarding(monkeypatch,tmp_path):
+    captured=[]
+    class Child:
+        pid=345
+        def poll(self):return 0
+    monkeypatch.setattr('subprocess.Popen',lambda command,**kwargs:captured.append(command) or Child())
+    spec=dict(local_port=8000,remote_port=8000,target='user@example.invalid',ssh_port=4035,
+              identity_file='key',known_hosts_file='hosts',ipqos='none')
+    p=SSHProcess(run_id='run',worker_id='worker-0',spec=spec,stderr_path=tmp_path/'stderr')
+    argv=captured[0]
+    assert 'IPQoS=none' in argv and 'StrictHostKeyChecking=yes' in argv
+    assert '127.0.0.1:8000:127.0.0.1:8000' in argv and argv[-1]=='user@example.invalid'
+    assert 'ConnectTimeout=15' in argv and 'BatchMode=yes' in argv
+    p.close(p.identity)
+    spec['ipqos']='other'
+    with pytest.raises(ValueError,match='IPQoS'):
+        SSHProcess(run_id='run',worker_id='worker-0',spec=spec,stderr_path=tmp_path/'invalid')
+    assert len(captured)==1
+
+
+def test_windows_tcp_transport_keeps_wsl_ssh_ownership_and_binary_stdio(monkeypatch,tmp_path):
+    import base64
+    from risk_agent.monitoring.connection_lifecycle import windows_tcp_proxy_command
+    spec=dict(local_port=8000,remote_port=8000,target='root@121.48.161.243',ssh_port=4035,
+              identity_file='dedicated-key',known_hosts_file='strict-hosts',windows_tcp_proxy=True)
+    command=windows_tcp_proxy_command(spec)
+    script=base64.b64decode(command.rsplit(' ',1)[-1]).decode('utf-16le')
+    assert "ConnectAsync('121.48.161.243', 4035)" in script
+    assert 'OpenStandardInput().CopyToAsync($stream)' in script
+    assert '$stream.CopyToAsync([Console]::OpenStandardOutput())' in script
+    assert 'finally { $client.Dispose() }' in script
+    assert 'RISK_WINDOWS_TCP_PROXY pid=' in script
+    assert 'ssh' not in script and 'dedicated-key' not in script
+    seen=[]
+    class Child:
+        pid=123
+        def poll(self):return 0
+    monkeypatch.setattr('subprocess.Popen',lambda argv,**kw:seen.append((argv,kw)) or Child())
+    p=SSHProcess(run_id='run',worker_id='worker-0',spec=spec,stderr_path=tmp_path/'stderr')
+    argv,kw=seen[0]
+    assert argv[0]=='ssh' and 'ProxyCommand='+command in argv
+    assert argv[-1]=='root@121.48.161.243' and 'BatchMode=yes' in argv
+    assert '127.0.0.1:8000:127.0.0.1:8000' in argv and 'StrictHostKeyChecking=yes' in argv
+    assert kw['start_new_session'] is True
+    p.close(p.identity)
+    with pytest.raises(ValueError):
+        windows_tcp_proxy_command(dict(spec,target='root@host;bad'))

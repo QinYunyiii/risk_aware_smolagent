@@ -24,6 +24,15 @@ DIAGNOSTIC_COMPLETION_TOKENS = 1024
 FULL_GATE_EXPERIMENT_ID_1024 = "p2_d2_full_gate_1024"
 FULL_GATE_EXPERIMENT_CONFIG_VERSION_1024 = "p2-d2-full-gate-1024-v1"
 FULL_GATE_MODE_1024 = "full-five-task-gate-1024"
+EXACT_IDENTIFIER_VERSION = "p2-d2-full-gate-1024-exact-identifiers-v2"
+EXACT_IDENTIFIER_TASK = "p2_api_process_control_001"
+EXACT_IDENTIFIER_PROMPT = (
+    'Use the API tools to read the order whose exact order_id string is "order-83001" '
+    '(including the "order-" prefix). Use the status returned by get_order as expected_status '
+    'to update that same order to "processing" with idempotency_key "p2_api_process_control-001". '
+    'Then query the same exact order_id again and return the observed final state. '
+    'Do not shorten or normalize identifiers.'
+)
 FULL_GATE_WORKER_SCHEDULE = (
     "worker-0",
     "worker-1",
@@ -121,6 +130,24 @@ def _read_yaml(path: str | Path) -> dict[str, Any]:
             f"Completion-budget configuration must be an object: {path}"
         )
     return value
+
+
+def load_exact_identifier_prompt_profile(path: str | Path, tasks: Any) -> dict[str, Any]:
+    """Explicit, separately versioned, user-approved T3 presentation change only."""
+    value = _read_yaml(path)
+    original = next(task.prompt for task in tasks if task.task_id == EXACT_IDENTIFIER_TASK)
+    required = dict(
+        profile_id="p2-d2-t3-exact-order-id-v1",
+        experiment_config_version=EXACT_IDENTIFIER_VERSION,
+        baseline_full_gate_sha256=sha256_file("configs/p2_d2_full_gate_1024.yaml"),
+        task_id=EXACT_IDENTIFIER_TASK,
+        original_prompt_sha256=hashlib.sha256(original.encode()).hexdigest(),
+        prompt=EXACT_IDENTIFIER_PROMPT,
+    )
+    if value != required:
+        raise CompletionBudgetConfigurationError("Unregistered exact-identifier prompt profile")
+    return dict(value, profile_file_sha256=sha256_file(path),
+                revised_prompt_sha256=hashlib.sha256(value["prompt"].encode()).hexdigest())
 
 
 def load_completion_budget_profile(
@@ -315,6 +342,9 @@ __all__ = [
     "EXPERIMENT_ID_1024",
     "EXPECTED_FULL_GATE_CONTROLS",
     "EXPECTED_FULL_GATE_LIMITS_1024",
+    "EXACT_IDENTIFIER_PROMPT",
+    "EXACT_IDENTIFIER_TASK",
+    "EXACT_IDENTIFIER_VERSION",
     "FULL_GATE_EXPERIMENT_CONFIG_VERSION_1024",
     "FULL_GATE_EXPERIMENT_ID_1024",
     "FULL_GATE_MODE_1024",
@@ -323,6 +353,7 @@ __all__ = [
     "GENERATION_CONFIG_VERSION_1024",
     "T1_TASK_ID",
     "load_full_gate_1024_profile",
+    "load_exact_identifier_prompt_profile",
     "load_completion_budget_profile",
     "sha256_file",
     "validate_completion_budget_settings",

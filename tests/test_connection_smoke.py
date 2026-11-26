@@ -129,39 +129,6 @@ def test_cli_denied_before_any_connection_or_run(tmp_path):
     assert not (tmp_path/'runs').exists()
 
 
-@pytest.mark.parametrize('launch_failure',[False,True])
-def test_entrypoint_manifest_and_partial_launch_cleanup(tmp_path,monkeypatch,launch_failure):
-    import ssl
-    context=ssl.create_default_context()
-    monkeypatch.setattr(smoke.ssl,'create_default_context',lambda **kw:context)
-    monkeypatch.setattr(smoke.RemoteModelSettings,'from_yaml',lambda path:SimpleNamespace(
-        resolve_api_key=lambda:'fixture',resolve_ca_bundle=lambda:Path('fake-ca')))
-    monkeypatch.setattr(smoke,'specs_from_host',lambda:{})
-    monkeypatch.setattr(smoke,'port_open',lambda port:False)
-    monkeypatch.setattr(smoke.httpx2,'Client',lambda **kw:SimpleNamespace(close=lambda:None))
-    owned=[]
-    def launch(self,specs):
-        for worker in smoke.WORKERS:
-            if launch_failure and worker=='worker-1':
-                raise RuntimeError('synthetic second tunnel failure')
-            p=Adapter(self.path.parent,worker)
-            self.add(p)
-            owned.append(p)
-    monkeypatch.setattr(ConnectionLifecycle,'launch',launch)
-    window=smoke.observation_window
-    def fast_window(c,probe):
-        clock,wait=fake_time()
-        return window(c,probe,clock=clock,wait=wait)
-    monkeypatch.setattr(smoke,'observation_window',fast_window)
-    requests=[]
-    monkeypatch.setattr(smoke,'get_models',lambda c,w,*a:requests.append(w))
-    result=smoke.main(['--authorize-remote','--run-id','run','--output-root',str(tmp_path/'runs')])
-    assert result==(1 if launch_failure else 0)
-    assert requests==([] if launch_failure else ['worker-0','worker-1']*2)
-    assert all(p.cleaned for p in owned)
-    root=tmp_path/'runs/run'
-    release=json.loads((root/'resource_release.json').read_text())
-    assert release['passed']
-    manifest=json.loads((root/'artifact_manifest.json').read_text())
-    assert 'connection_audit.jsonl' in {a['path'] for a in manifest['artifacts']}
-    assert all(smoke.sha256_file(root/a['path'])==a['sha256'] for a in manifest['artifacts'])
+# The formal CLI now uses the two-GET protocol. Its full entrypoint regression
+# (including partial launch cleanup) lives in test_connection_smoke_integration.py.
+# The historical 90-second helper expectations above remain unchanged.

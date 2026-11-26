@@ -9,6 +9,8 @@ timeout cannot create duplicate workers.
 from __future__ import annotations
 
 import argparse
+import inspect
+import json
 import os
 import re
 import socket
@@ -22,6 +24,131 @@ REMOTE_ROOT = "/mnt/risk-aware-smolagents"
 REMOTE_STATE = f"{REMOTE_ROOT}/logs/vllm/day2"
 LOCAL_STATE = Path.home() / ".config/risk-aware-smolagents/day2"
 WORKER_PORTS = (8000, 8001)
+
+
+def ownership_checks(record: dict) -> bool:
+    """Same strict, credential-free ownership predicate on both ends of SSH."""
+    import re
+    worker = record.get('worker_id')
+    if worker not in ('worker-0', 'worker-1'):
+        return False
+    index = int(worker[-1]); port = 8000 + index
+    return bool(
+        record.get('remote_container_id') == '36f825bcc5da'
+        and record.get('remote_user') == 'root'
+        and record.get('ubuntu_version') == '22.04'
+        and type(record.get('worker_pid')) is int and record['worker_pid'] > 1
+        and record.get('alive') is True
+        and record.get('worker_process_identity')
+        and record.get('worker_command_identity') == 'vllm-' + worker
+        and re.fullmatch('[0-9a-f]{64}', record.get('worker_command_fingerprint', ''))
+        and record.get('cuda_visible_devices') in (str(index), record.get('gpu_uuid'))
+        and record.get('physical_gpu_id') == index
+        and re.fullmatch(r'GPU-[0-9a-fA-F-]{36}', record.get('gpu_uuid', ''))
+        and record.get('state_gpu_uuid') == record.get('gpu_uuid')
+        and record.get('state_pid') == record.get('worker_pid')
+        and record.get('state_gpu_id') == index
+        and record.get('endpoint') == f'127.0.0.1:{port}'
+        and record.get('listener_ownership_verified') is True
+        and record.get('model_id') == 'Qwen/Qwen3-8B'
+        and record.get('model_path') == '/mnt/risk-aware-smolagents/remote_models/Qwen3-8B')
+
+
+def worker_ownership_preflight(system=None) -> dict:
+    """Read-only extension of Day-2 state/cmdline/GPU ownership checks.
+
+    Discover current listener owners first, then cross-check deployment receipts.
+    No HTTP, TLS, directory creation, process signals or GPU 2--7 queries.
+    Raw cmdline/environ are used in memory only and never returned.
+    """
+    import datetime
+    import hashlib
+    import os
+    from pathlib import Path
+    import subprocess
+
+    class System:
+        def identity(self):
+            release = dict(line.split('=', 1) for line in Path('/etc/os-release').read_text().splitlines()
+                           if '=' in line)
+            return dict(remote_container_id=os.uname().nodename,
+                        remote_user='root' if os.getuid() == 0 else str(os.getuid()),
+                        ubuntu_version=release.get('VERSION_ID', '').strip('"')
+                        if release.get('ID', '').strip('"') == 'ubuntu' else None)
+
+        def gpu_rows(self):
+            result = subprocess.run(['nvidia-smi', '--id=0,1', '--query-gpu=index,uuid',
+                '--format=csv,noheader,nounits'], capture_output=True, check=True, timeout=5,
+                env={k: os.environ[k] for k in ('PATH', 'LANG', 'LC_ALL') if k in os.environ})
+            return {int(row.split(',')[0]): row.split(',')[1].strip()
+                    for row in result.stdout.decode('ascii').splitlines()}
+
+        def worker(self, index):
+            port = 8000 + index
+            # Current socket inode -> current owning PID, not a historical PID.
+            inodes = {line.split()[9] for line in Path('/proc/net/tcp').read_text().splitlines()[1:]
+                      if line.split()[1] == f'0100007F:{port:04X}' and line.split()[3] == '0A'}
+            owners = set()
+            for base in Path('/proc').iterdir():
+                if not base.name.isdigit(): continue
+                try:
+                    if any(os.readlink(fd) in {'socket:[' + inode + ']' for inode in inodes}
+                           for fd in (base / 'fd').iterdir()): owners.add(int(base.name))
+                except (FileNotFoundError, PermissionError, ProcessLookupError): continue
+            if len(owners) != 1: raise ValueError('ambiguous listener owner')
+            pid = owners.pop(); base = Path('/proc') / str(pid)
+            before = (base / 'stat').read_text().rsplit(')', 1)[1].split()
+            raw = (base / 'cmdline').read_bytes(); args = raw.rstrip(b'\0').decode().split('\0')
+            def option(name):
+                for i, arg in enumerate(args):
+                    if arg == name and i + 1 < len(args): return args[i+1]
+                    if arg.startswith(name + '='): return arg.split('=', 1)[1]
+                return None
+            env = dict(part.split(b'=', 1) for part in (base / 'environ').read_bytes().split(b'\0')
+                       if b'=' in part)
+            # Only the single CUDA selector leaves memory; never serialize environ.
+            cuda = env.get(b'CUDA_VISIBLE_DEVICES', b'').decode('ascii')
+            state = dict(line.split('=', 1) for line in Path(
+                f'/mnt/risk-aware-smolagents/logs/vllm/day2/worker-{index}.state').read_text().splitlines()
+                         if '=' in line)
+            after = (base / 'stat').read_text().rsplit(')', 1)[1].split()
+            command_ok = any('vllm' in arg for arg in args) and option('--port') == str(port)
+            return dict(worker_pid=pid, alive=after[0] not in ('Z', 'X') and before[19] == after[19],
+                worker_process_identity=after[19],
+                worker_command_identity=f'vllm-worker-{index}' if command_ok else None,
+                worker_command_fingerprint=hashlib.sha256(raw).hexdigest(),
+                cuda_visible_devices=cuda, state_pid=int(state['pid']), state_gpu_id=int(state['gpu']),
+                state_gpu_uuid=state['gpu_uuid'], listener_ownership_verified=bool(inodes),
+                endpoint=f'127.0.0.1:{port}' if int(state['port']) == port else None,
+                model_id=option('--served-model-name'), model_path=option('--model') or
+                (args[args.index('serve') + 1] if 'serve' in args and args.index('serve') + 1 < len(args) else None))
+
+    system = system if system is not None else System()
+    records = []
+    try:
+        identity = system.identity()
+        if (identity.get('remote_container_id') != '36f825bcc5da'
+                or identity.get('remote_user') != 'root' or identity.get('ubuntu_version') != '22.04'):
+            raise ValueError('identity rejected')
+        gpus = system.gpu_rows()
+        if set(gpus) != {0, 1} or len(set(gpus.values())) != 2: raise ValueError('GPU mapping rejected')
+        for index in (0, 1):
+            record = dict(identity, worker_id=f'worker-{index}', physical_gpu_id=index,
+                          gpu_uuid=gpus[index], **system.worker(index))
+            record['ownership_verified'] = ownership_checks(record)
+            records.append(record)
+            if not record['ownership_verified']: raise ValueError('worker rejected')
+        return dict(passed=True, workers=records, observed_at=datetime.datetime.now(
+            datetime.timezone.utc).isoformat(), source='live_proc_and_day2_state_and_scoped_nvidia_smi')
+    except Exception:
+        return dict(passed=False, workers=records, error='OWNERSHIP_PREFLIGHT_REJECTED')
+
+
+def ownership_program() -> str:
+    """Send this exact existing deployment preflight through remote(), once."""
+    return (inspect.getsource(ownership_checks) + '\n' + inspect.getsource(worker_ownership_preflight)
+            + '\nimport json\nresult=worker_ownership_preflight()\n'
+              'print(json.dumps(result,sort_keys=True))\nraise SystemExit(0 if result["passed"] else 90)\n')
 
 
 def ssh_base() -> list[str]:
@@ -306,8 +433,13 @@ esac
 
 
 def remote(
-    action: str, timeout: float = 60, gpu_ids: str | None = None
+    action: str, timeout: float = 60, gpu_ids: str | None = None,
+    *, ssh_command: list[str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    if action == 'ownership-readonly':
+        command = (ssh_command or ssh_base()) + ['python3', '-B', '-']
+        return subprocess.run(command, input=ownership_program(), text=True,
+                              capture_output=True, timeout=timeout, check=False)
     command = ssh_base() + ["bash", "-s", "--", action, gpu_ids or ""]
     return subprocess.run(
         command, input=REMOTE_SCRIPT, text=True, capture_output=True,

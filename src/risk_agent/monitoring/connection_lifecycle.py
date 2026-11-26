@@ -6,6 +6,8 @@ owners can implement the same snapshot/close interface; native support is not cl
 from __future__ import annotations
 
 import json
+import base64
+import ipaddress
 import os
 import socket
 import ssl
@@ -92,6 +94,36 @@ def diagnose(exc: BaseException, observations: list[dict[str, Any]]) -> dict[str
     })
 
 
+def windows_tcp_proxy_command(spec: dict[str, Any]) -> str:
+    """OS-native binary relay only; WSL ssh still owns auth, crypto and -L.
+
+    A closed SSH stdio pipe or remote socket ends the helper. No credentials,
+    listeners, persistent state or remote commands are handled by PowerShell.
+    """
+    host = str(ipaddress.ip_address(str(spec['target']).rsplit('@', 1)[-1]))
+    port = int(spec['ssh_port'])
+    if not 0 < port < 65536:
+        raise ValueError('Invalid proxy port')
+    script = f"""$ErrorActionPreference = 'Stop'
+$client = New-Object System.Net.Sockets.TcpClient
+try {{
+  $connect = $client.ConnectAsync('{host}', {port})
+  if (-not $connect.Wait(15000)) {{ throw 'TCP connect deadline' }}
+  $connect.GetAwaiter().GetResult()
+  $client.NoDelay = $true
+  [Console]::Error.WriteLine(('RISK_WINDOWS_TCP_PROXY pid=' + $PID + ' start=' + (Get-Process -Id $PID).StartTime.ToUniversalTime().ToString('o')))
+  $stream = $client.GetStream()
+  $up = [Console]::OpenStandardInput().CopyToAsync($stream)
+  $down = $stream.CopyToAsync([Console]::OpenStandardOutput())
+  $finished = [System.Threading.Tasks.Task]::WhenAny(@($up, $down)).GetAwaiter().GetResult()
+  $finished.GetAwaiter().GetResult()
+}} finally {{ $client.Dispose() }}
+"""
+    encoded = base64.b64encode(script.encode('utf-16le')).decode('ascii')
+    return ('/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe '
+            '-NoProfile -NonInteractive -EncodedCommand ' + encoded)
+
+
 class SSHProcess:
     """Foreground OpenSSH owned by its Popen handle in an independent session."""
 
@@ -102,7 +134,7 @@ class SSHProcess:
         port = int(spec["local_port"])
         target = str(spec["target"])
         command = [
-            "ssh", "-F", "/dev/null", "-N", "-T", "-i", str(spec["identity_file"]),
+            "ssh", "-v", "-F", "/dev/null", "-N", "-T", "-i", str(spec["identity_file"]),
             "-p", str(int(spec["ssh_port"])), "-o", "BatchMode=yes",
             "-o", "IdentitiesOnly=yes", "-o", "StrictHostKeyChecking=yes",
             "-o", "UserKnownHostsFile=" + str(spec["known_hosts_file"]),
@@ -111,6 +143,17 @@ class SSHProcess:
             "-o", "ControlMaster=no", "-o", "ControlPath=none",
             "-L", f"127.0.0.1:{port}:127.0.0.1:{int(spec['remote_port'])}", target,
         ]
+        if "ipqos" in spec:
+            if spec["ipqos"] != "none":
+                self._stderr.close()
+                raise ValueError("Only the explicit OS-default IPQoS profile is supported")
+            command[-1:-1] = ["-o", "IPQoS=none"]
+        if spec.get('windows_tcp_proxy'):
+            try:
+                command[-1:-1] = ['-o', 'ProxyCommand=' + windows_tcp_proxy_command(spec)]
+            except BaseException:
+                self._stderr.close()
+                raise
         if not target or target.startswith("-"):
             self._stderr.close()
             raise ValueError("Invalid explicit SSH target")
@@ -181,12 +224,13 @@ class ConnectionLifecycle:
             return record
 
     def add(self, adapter: ProcessAdapter) -> None:
-        identity = adapter.identity
-        if identity.run_id != self.run_id or identity.worker_id in self.adapters or self.closed:
-            raise ValueError("Duplicate or foreign connection ownership")
-        self.adapters[identity.worker_id] = adapter
-        self.identities[identity.worker_id] = identity
-        self.event("connection_created", identity.worker_id)
+        with self.lock:
+            identity = adapter.identity
+            if identity.run_id != self.run_id or identity.worker_id in self.adapters or self.closed:
+                raise ValueError("Duplicate or foreign connection ownership")
+            self.adapters[identity.worker_id] = adapter
+            self.identities[identity.worker_id] = identity
+            self.event("connection_created", identity.worker_id)
 
     def start_monitor(self) -> None:
         def monitor() -> None:
@@ -230,33 +274,40 @@ class ConnectionLifecycle:
     def launch(self, specs: dict[str, Any], *, factory: Callable[..., ProcessAdapter] = SSHProcess) -> None:
         if set(specs) != {"worker-0", "worker-1"}:
             raise ValueError("Two independent frozen Workers required")
-        for worker, port in (("worker-0", 8000), ("worker-1", 8001)):
-            spec = specs[worker]
-            if spec["local_port"] != port or spec["remote_port"] != port:
-                raise ValueError("Frozen forwarding ports differ")
-            with socket.socket() as sock:
-                if sock.connect_ex(("127.0.0.1", port)) == 0:
-                    raise RuntimeError("Port already owned; refusing adoption")
-            adapter = factory(run_id=self.run_id, worker_id=worker, spec=spec,
-                              stderr_path=self.path.parent / f"{worker}_ssh.stderr")
-            try:
-                self.add(adapter)
-            except BaseException:
-                adapter.close(adapter.identity)
-                raise
-            deadline = time.monotonic() + 30
-            while True:
-                state = adapter.snapshot()
-                if state["process_state"] == "PROCESS_EXITED":
-                    self.event("connection_lost_observed", worker)
-                    raise RuntimeError("Owned SSH process exited during startup")
-                if state["listener_state"] == "LOCAL_PORT_LISTENING":
-                    self.event("connection_ready", worker)
-                    break
-                if time.monotonic() >= deadline:
-                    raise TimeoutError("Owned SSH forward readiness timeout")
-                time.sleep(0.1)
+        for worker in ("worker-0", "worker-1"):
+            self.launch_worker(worker, specs[worker], factory=factory)
         self.start_monitor()
+
+    def launch_worker(self, worker: str, spec: dict[str, Any], *,
+                      factory: Callable[..., ProcessAdapter] = SSHProcess) -> None:
+        """Create one owned forward; callers control when the next may start."""
+        if worker not in ("worker-0", "worker-1") or worker in self.adapters or self.closed:
+            raise ValueError("Invalid, duplicate or closed Worker launch")
+        port = 8000 if worker == "worker-0" else 8001
+        if spec["local_port"] != port or spec["remote_port"] != port:
+            raise ValueError("Frozen forwarding ports differ")
+        with socket.socket() as sock:
+            if sock.connect_ex(("127.0.0.1", port)) == 0:
+                raise RuntimeError("Port already owned; refusing adoption")
+        adapter = factory(run_id=self.run_id, worker_id=worker, spec=spec,
+                          stderr_path=self.path.parent / f"{worker}_ssh.stderr")
+        try:
+            self.add(adapter)
+        except BaseException:
+            adapter.close(adapter.identity)
+            raise
+        deadline = time.monotonic() + 30
+        while True:
+            state = adapter.snapshot()
+            if state["process_state"] == "PROCESS_EXITED":
+                self.event("connection_lost_observed", worker)
+                raise RuntimeError("Owned SSH process exited during startup")
+            if state["listener_state"] == "LOCAL_PORT_LISTENING":
+                self.event("connection_ready", worker)
+                break
+            if time.monotonic() >= deadline:
+                raise TimeoutError("Owned SSH forward readiness timeout")
+            time.sleep(0.1)
 
     def close(self) -> None:
         with self.lock:

@@ -1,0 +1,10 @@
+profile_id: p2-d2-t3-exact-order-id-v1
+experiment_config_version: p2-d2-full-gate-1024-exact-identifiers-v2
+baseline_full_gate_sha256: 3d3c5f161f9fa13c518e00a193eb54e74452a43c3ecb36f029d8df2986a5d3b4
+task_id: p2_api_process_control_001
+original_prompt_sha256: 1dbdf3b4595c30d8c8aa4597be63f9d2d583dee1271beb4b280f2d9d0e9733cc
+prompt: Use the API tools to read the order whose exact order_id string is "order-83001"
+  (including the "order-" prefix). Use the status returned by get_order as expected_status
+  to update that same order to "processing" with idempotency_key "p2_api_process_control-001".
+  Then query the same exact order_id again and return the observed final state. Do
+  not shorten or normalize identifiers.
