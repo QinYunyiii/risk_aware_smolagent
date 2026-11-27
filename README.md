@@ -249,3 +249,15 @@ python3.12 -m venv .venv
 ```
 
 公开仓库前检查第三方依赖和数据许可。不得提交模型权重、密钥、私钥、受限制日志或未经许可的数据。
+
+## Phase 2 正式协议冻结 v2.1（2026-11-27）
+
+正式候选配置为 [phase2_risk_collection_v2_1.yaml](configs/phase2_risk_collection_v2_1.yaml)：
+单次 Completion 1024 tokens；新增多步骤 API 任务统一保留完整标识符；在首个合格的
+非终止 Observation/Error 后捕获一个 primary Checkpoint。原配置及历史 Run 保留。
+80 模板、160 实例及其 Split、Schema、故障分类、Verifier 和预算由独立 Manifest 校验。
+
+本地检查：`.venv/bin/python scripts/verify_protocol_freeze.py`。
+详细约束见 [冻结记录](docs/phase2/protocol_freeze_record_v2_1.md)。
+本地冻结不代表正式采集已就绪：新配置仍须验收完整 CONTINUE 到终止及 Verifier，
+并获得正式采集授权；历史 Smoke 数据不能作为正式训练数据。

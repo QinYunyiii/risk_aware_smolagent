@@ -1,0 +1,7 @@
+version: p2-catalog-v2.1.0
+source_templates: configs/task_templates_v2.yaml
+instances_per_template: 2
+prompt_policy: p2-multi-api-exact-identifiers-v1
+prompt_scope: all_new_multi_api_templates_all_instances
+preserve_inherited_templates_and_prompts: true
+preserve_ids_seeds_splits_expected_reference_steps_and_fault_plans: true

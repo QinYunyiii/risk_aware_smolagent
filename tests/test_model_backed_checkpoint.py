@@ -205,6 +205,77 @@ def _inventory(root: Path) -> dict[str, str]:
     }
 
 
+@pytest.mark.parametrize("visible_error", [False, True])
+def test_formal_first_observation_capture_preserves_consumed_budget(
+    tmp_path: Path, visible_error: bool
+) -> None:
+    """Local lifecycle evidence only; this fixture does not call real Qwen."""
+    from risk_agent.collection.decision_checkpoint import DecisionCheckpointRejected
+    from risk_agent.collection.protocol_freeze import build_formal_catalog
+
+    tasks = build_formal_catalog(ROOT)
+    task = next(item for item in tasks if item.task_id == "p2_api_process_control_001")
+    environment = TaskEnvironment(tmp_path / "source", task)
+    environment.reset()
+    runtime = RuntimeState(seed=task.seed, budget=BudgetState(50_000, 12, 900.0))
+    tools = create_local_domain_tools(
+        environment=environment,
+        monitor=_monitor(task=task, runtime=runtime, trace_path=tmp_path / "tools.jsonl",
+                         environment_id="first-observation-fixture"),
+    )
+    order_id = "missing-order-fixture" if visible_error else task.orders[0]["order_id"]
+    agent, model, underlying = _agent(
+        tools=tools, runtime=runtime,
+        responses=[_tool_message("first-call", "get_order", {"order_id": order_id})],
+    )
+    stream = agent.run(task.prompt, stream=True)
+    event = _next_action(stream)
+    assert bool(event.error) == visible_error
+    assert model.model_calls_used == underlying.calls == 1
+    assert len(runtime.tool_history) == 1
+    manager = CheckpointManager(tmp_path / "checkpoints")
+    capture = DecisionCheckpointCapture()
+    arguments = dict(
+        event=event, agent=agent, manager=manager, checkpoint_id="first_observation",
+        environment=environment, runtime_state=runtime,
+        identity=CheckpointIdentityV2(
+            experiment_id="protocol_freeze_local", run_id="first_observation_fixture",
+            task_run_id=task.task_id, model_version="local-scripted-lifecycle-v1",
+            worker_id="worker-local", prompt_version="p2-multi-api-exact-identifiers-v1",
+            tool_version="local-fixture", verifier_version="deterministic-verifier-not-run",
+            verifier_content_hash=_digest("not-run"), catalog_hash=canonical_task_catalog_hash(tasks),
+            split_manifest_hash=split_manifest_hash(tasks), controller_type="qwen3_model",
+            execution_mode="model_backed_smoke", created_at="2026-11-27T00:00:00+08:00",
+        ),
+        runtime_metadata=RuntimeCheckpointMetadata(
+            max_model_calls=10, model_calls_used=model.model_calls_used,
+            prompt_tokens_used=model.prompt_tokens_observed,
+            completion_tokens_used=model.completion_tokens_observed,
+            resource_usage={"model_latency_seconds": model.model_latency_seconds_observed},
+            tool_adapter_state=AdapterStateMetadata(
+                AdapterStateStatus.STATEFUL, {"tools": capture_local_tool_adapter_state(tools)}),
+            fault_adapter_state=AdapterStateMetadata(AdapterStateStatus.NOT_INSTANTIATED, None),
+            phase="after_tool_observation_before_model_generation", next_operation="model_generation",
+        ),
+        environment_metadata=EnvironmentCheckpointMetadata(
+            completed_side_effects=[],
+            latest_completed_operation={"kind": "tool_call", "call_id": "first-call"},
+        ),
+    )
+    snapshot = capture.capture(**arguments).snapshot
+    stream.close()
+    assert snapshot.manifest.identity["step_index"] == 1
+    assert underlying.calls == 1
+    restored_environment = TaskEnvironment(tmp_path / "restored", task)
+    restored_environment.reset()
+    restored = manager.restore_v2(checkpoint_id="first_observation", environment=restored_environment)
+    assert restored.runtime_state.budget.to_dict() == runtime.budget.to_dict()
+    assert restored.runtime_state.budget.tool_calls_used == 1
+    assert restored.runtime_state.budget.tokens_used > 0
+    with pytest.raises(DecisionCheckpointRejected, match="primary_checkpoint_already_captured"):
+        capture.capture(**arguments)
+
+
 def _historical_v2_copy(
     *, source: Path, destination_root: Path, checkpoint_id: str
 ) -> CheckpointManager:

@@ -1,0 +1,1286 @@
+{
+  "protocol_id": "risk-continue-v2.1.0",
+  "group_key": "template_id",
+  "tasks": [
+    {
+      "task_id": "data_filter_category_eq_001",
+      "template_id": "data_filter_category_eq",
+      "instance_id": "data_filter_category_eq_001",
+      "seed": 71001,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "data_filter_category_eq_002",
+      "template_id": "data_filter_category_eq",
+      "instance_id": "data_filter_category_eq_002",
+      "seed": 71002,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "data_filter_amount_gt_001",
+      "template_id": "data_filter_amount_gt",
+      "instance_id": "data_filter_amount_gt_001",
+      "seed": 71011,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "data_filter_amount_gt_002",
+      "template_id": "data_filter_amount_gt",
+      "instance_id": "data_filter_amount_gt_002",
+      "seed": 71012,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "data_filter_score_gte_001",
+      "template_id": "data_filter_score_gte",
+      "instance_id": "data_filter_score_gte_001",
+      "seed": 71021,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "data_filter_score_gte_002",
+      "template_id": "data_filter_score_gte",
+      "instance_id": "data_filter_score_gte_002",
+      "seed": 71022,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "data_filter_latency_lt_001",
+      "template_id": "data_filter_latency_lt",
+      "instance_id": "data_filter_latency_lt_001",
+      "seed": 71031,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "data_filter_latency_lt_002",
+      "template_id": "data_filter_latency_lt",
+      "instance_id": "data_filter_latency_lt_002",
+      "seed": 71032,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "data_filter_priority_lte_001",
+      "template_id": "data_filter_priority_lte",
+      "instance_id": "data_filter_priority_lte_001",
+      "seed": 71041,
+      "domain": "data_analysis",
+      "split": "validation"
+    },
+    {
+      "task_id": "data_filter_priority_lte_002",
+      "template_id": "data_filter_priority_lte",
+      "instance_id": "data_filter_priority_lte_002",
+      "seed": 71042,
+      "domain": "data_analysis",
+      "split": "validation"
+    },
+    {
+      "task_id": "data_filter_inventory_gt_001",
+      "template_id": "data_filter_inventory_gt",
+      "instance_id": "data_filter_inventory_gt_001",
+      "seed": 71051,
+      "domain": "data_analysis",
+      "split": "test"
+    },
+    {
+      "task_id": "data_filter_inventory_gt_002",
+      "template_id": "data_filter_inventory_gt",
+      "instance_id": "data_filter_inventory_gt_002",
+      "seed": 71052,
+      "domain": "data_analysis",
+      "split": "test"
+    },
+    {
+      "task_id": "data_aggregate_units_sum_001",
+      "template_id": "data_aggregate_units_sum",
+      "instance_id": "data_aggregate_units_sum_001",
+      "seed": 71061,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "data_aggregate_units_sum_002",
+      "template_id": "data_aggregate_units_sum",
+      "instance_id": "data_aggregate_units_sum_002",
+      "seed": 71062,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "data_aggregate_latency_mean_001",
+      "template_id": "data_aggregate_latency_mean",
+      "instance_id": "data_aggregate_latency_mean_001",
+      "seed": 71071,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "data_aggregate_latency_mean_002",
+      "template_id": "data_aggregate_latency_mean",
+      "instance_id": "data_aggregate_latency_mean_002",
+      "seed": 71072,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "data_aggregate_events_count_001",
+      "template_id": "data_aggregate_events_count",
+      "instance_id": "data_aggregate_events_count_001",
+      "seed": 71081,
+      "domain": "data_analysis",
+      "split": "validation"
+    },
+    {
+      "task_id": "data_aggregate_events_count_002",
+      "template_id": "data_aggregate_events_count",
+      "instance_id": "data_aggregate_events_count_002",
+      "seed": 71082,
+      "domain": "data_analysis",
+      "split": "validation"
+    },
+    {
+      "task_id": "data_aggregate_revenue_sum_001",
+      "template_id": "data_aggregate_revenue_sum",
+      "instance_id": "data_aggregate_revenue_sum_001",
+      "seed": 71091,
+      "domain": "data_analysis",
+      "split": "test"
+    },
+    {
+      "task_id": "data_aggregate_revenue_sum_002",
+      "template_id": "data_aggregate_revenue_sum",
+      "instance_id": "data_aggregate_revenue_sum_002",
+      "seed": 71092,
+      "domain": "data_analysis",
+      "split": "test"
+    },
+    {
+      "task_id": "file_list_project_tree_001",
+      "template_id": "file_list_project_tree",
+      "instance_id": "file_list_project_tree_001",
+      "seed": 72001,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "file_list_project_tree_002",
+      "template_id": "file_list_project_tree",
+      "instance_id": "file_list_project_tree_002",
+      "seed": 72002,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "file_list_reports_001",
+      "template_id": "file_list_reports",
+      "instance_id": "file_list_reports_001",
+      "seed": 72011,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "file_list_reports_002",
+      "template_id": "file_list_reports",
+      "instance_id": "file_list_reports_002",
+      "seed": 72012,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "file_search_project_code_001",
+      "template_id": "file_search_project_code",
+      "instance_id": "file_search_project_code_001",
+      "seed": 72021,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "file_search_project_code_002",
+      "template_id": "file_search_project_code",
+      "instance_id": "file_search_project_code_002",
+      "seed": 72022,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "file_search_casefold_001",
+      "template_id": "file_search_casefold",
+      "instance_id": "file_search_casefold_001",
+      "seed": 72031,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "file_search_casefold_002",
+      "template_id": "file_search_casefold",
+      "instance_id": "file_search_casefold_002",
+      "seed": 72032,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "file_search_multiple_001",
+      "template_id": "file_search_multiple",
+      "instance_id": "file_search_multiple_001",
+      "seed": 72041,
+      "domain": "file_retrieval",
+      "split": "test"
+    },
+    {
+      "task_id": "file_search_multiple_002",
+      "template_id": "file_search_multiple",
+      "instance_id": "file_search_multiple_002",
+      "seed": 72042,
+      "domain": "file_retrieval",
+      "split": "test"
+    },
+    {
+      "task_id": "file_read_exact_note_001",
+      "template_id": "file_read_exact_note",
+      "instance_id": "file_read_exact_note_001",
+      "seed": 72051,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "file_read_exact_note_002",
+      "template_id": "file_read_exact_note",
+      "instance_id": "file_read_exact_note_002",
+      "seed": 72052,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "file_search_line_position_001",
+      "template_id": "file_search_line_position",
+      "instance_id": "file_search_line_position_001",
+      "seed": 72061,
+      "domain": "file_retrieval",
+      "split": "validation"
+    },
+    {
+      "task_id": "file_search_line_position_002",
+      "template_id": "file_search_line_position",
+      "instance_id": "file_search_line_position_002",
+      "seed": 72062,
+      "domain": "file_retrieval",
+      "split": "validation"
+    },
+    {
+      "task_id": "file_list_nested_assets_001",
+      "template_id": "file_list_nested_assets",
+      "instance_id": "file_list_nested_assets_001",
+      "seed": 72071,
+      "domain": "file_retrieval",
+      "split": "validation"
+    },
+    {
+      "task_id": "file_list_nested_assets_002",
+      "template_id": "file_list_nested_assets",
+      "instance_id": "file_list_nested_assets_002",
+      "seed": 72072,
+      "domain": "file_retrieval",
+      "split": "validation"
+    },
+    {
+      "task_id": "file_read_unicode_001",
+      "template_id": "file_read_unicode",
+      "instance_id": "file_read_unicode_001",
+      "seed": 72081,
+      "domain": "file_retrieval",
+      "split": "test"
+    },
+    {
+      "task_id": "file_read_unicode_002",
+      "template_id": "file_read_unicode",
+      "instance_id": "file_read_unicode_002",
+      "seed": 72082,
+      "domain": "file_retrieval",
+      "split": "test"
+    },
+    {
+      "task_id": "file_read_multiline_001",
+      "template_id": "file_read_multiline",
+      "instance_id": "file_read_multiline_001",
+      "seed": 72091,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "file_read_multiline_002",
+      "template_id": "file_read_multiline",
+      "instance_id": "file_read_multiline_002",
+      "seed": 72092,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "api_inventory_primary_001",
+      "template_id": "api_inventory_primary",
+      "instance_id": "api_inventory_primary_001",
+      "seed": 73001,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "api_inventory_primary_002",
+      "template_id": "api_inventory_primary",
+      "instance_id": "api_inventory_primary_002",
+      "seed": 73002,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "api_inventory_backup_001",
+      "template_id": "api_inventory_backup",
+      "instance_id": "api_inventory_backup_001",
+      "seed": 73011,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "api_inventory_backup_002",
+      "template_id": "api_inventory_backup",
+      "instance_id": "api_inventory_backup_002",
+      "seed": 73012,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "api_inventory_low_stock_001",
+      "template_id": "api_inventory_low_stock",
+      "instance_id": "api_inventory_low_stock_001",
+      "seed": 73021,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "api_inventory_low_stock_002",
+      "template_id": "api_inventory_low_stock",
+      "instance_id": "api_inventory_low_stock_002",
+      "seed": 73022,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "api_inventory_bulk_stock_001",
+      "template_id": "api_inventory_bulk_stock",
+      "instance_id": "api_inventory_bulk_stock_001",
+      "seed": 73031,
+      "domain": "api_workflow",
+      "split": "validation"
+    },
+    {
+      "task_id": "api_inventory_bulk_stock_002",
+      "template_id": "api_inventory_bulk_stock",
+      "instance_id": "api_inventory_bulk_stock_002",
+      "seed": 73032,
+      "domain": "api_workflow",
+      "split": "validation"
+    },
+    {
+      "task_id": "api_order_pending_read_001",
+      "template_id": "api_order_pending_read",
+      "instance_id": "api_order_pending_read_001",
+      "seed": 73041,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "api_order_pending_read_002",
+      "template_id": "api_order_pending_read",
+      "instance_id": "api_order_pending_read_002",
+      "seed": 73042,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "api_order_processing_read_001",
+      "template_id": "api_order_processing_read",
+      "instance_id": "api_order_processing_read_001",
+      "seed": 73051,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "api_order_processing_read_002",
+      "template_id": "api_order_processing_read",
+      "instance_id": "api_order_processing_read_002",
+      "seed": 73052,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "api_order_shipped_read_001",
+      "template_id": "api_order_shipped_read",
+      "instance_id": "api_order_shipped_read_001",
+      "seed": 73061,
+      "domain": "api_workflow",
+      "split": "validation"
+    },
+    {
+      "task_id": "api_order_shipped_read_002",
+      "template_id": "api_order_shipped_read",
+      "instance_id": "api_order_shipped_read_002",
+      "seed": 73062,
+      "domain": "api_workflow",
+      "split": "validation"
+    },
+    {
+      "task_id": "api_order_start_processing_001",
+      "template_id": "api_order_start_processing",
+      "instance_id": "api_order_start_processing_001",
+      "seed": 73071,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "api_order_start_processing_002",
+      "template_id": "api_order_start_processing",
+      "instance_id": "api_order_start_processing_002",
+      "seed": 73072,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "api_order_ship_001",
+      "template_id": "api_order_ship",
+      "instance_id": "api_order_ship_001",
+      "seed": 73081,
+      "domain": "api_workflow",
+      "split": "test"
+    },
+    {
+      "task_id": "api_order_ship_002",
+      "template_id": "api_order_ship",
+      "instance_id": "api_order_ship_002",
+      "seed": 73082,
+      "domain": "api_workflow",
+      "split": "test"
+    },
+    {
+      "task_id": "api_order_cancel_001",
+      "template_id": "api_order_cancel",
+      "instance_id": "api_order_cancel_001",
+      "seed": 73091,
+      "domain": "api_workflow",
+      "split": "test"
+    },
+    {
+      "task_id": "api_order_cancel_002",
+      "template_id": "api_order_cancel",
+      "instance_id": "api_order_cancel_002",
+      "seed": 73092,
+      "domain": "api_workflow",
+      "split": "test"
+    },
+    {
+      "task_id": "logic_calculate_addition_001",
+      "template_id": "logic_calculate_addition",
+      "instance_id": "logic_calculate_addition_001",
+      "seed": 74001,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "logic_calculate_addition_002",
+      "template_id": "logic_calculate_addition",
+      "instance_id": "logic_calculate_addition_002",
+      "seed": 74002,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "logic_calculate_subtraction_001",
+      "template_id": "logic_calculate_subtraction",
+      "instance_id": "logic_calculate_subtraction_001",
+      "seed": 74011,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "logic_calculate_subtraction_002",
+      "template_id": "logic_calculate_subtraction",
+      "instance_id": "logic_calculate_subtraction_002",
+      "seed": 74012,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "logic_calculate_multiplication_001",
+      "template_id": "logic_calculate_multiplication",
+      "instance_id": "logic_calculate_multiplication_001",
+      "seed": 74021,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "logic_calculate_multiplication_002",
+      "template_id": "logic_calculate_multiplication",
+      "instance_id": "logic_calculate_multiplication_002",
+      "seed": 74022,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "logic_calculate_division_001",
+      "template_id": "logic_calculate_division",
+      "instance_id": "logic_calculate_division_001",
+      "seed": 74031,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "logic_calculate_division_002",
+      "template_id": "logic_calculate_division",
+      "instance_id": "logic_calculate_division_002",
+      "seed": 74032,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "logic_calculate_parentheses_001",
+      "template_id": "logic_calculate_parentheses",
+      "instance_id": "logic_calculate_parentheses_001",
+      "seed": 74041,
+      "domain": "calculation_logic",
+      "split": "validation"
+    },
+    {
+      "task_id": "logic_calculate_parentheses_002",
+      "template_id": "logic_calculate_parentheses",
+      "instance_id": "logic_calculate_parentheses_002",
+      "seed": 74042,
+      "domain": "calculation_logic",
+      "split": "validation"
+    },
+    {
+      "task_id": "logic_calculate_power_001",
+      "template_id": "logic_calculate_power",
+      "instance_id": "logic_calculate_power_001",
+      "seed": 74051,
+      "domain": "calculation_logic",
+      "split": "test"
+    },
+    {
+      "task_id": "logic_calculate_power_002",
+      "template_id": "logic_calculate_power",
+      "instance_id": "logic_calculate_power_002",
+      "seed": 74052,
+      "domain": "calculation_logic",
+      "split": "test"
+    },
+    {
+      "task_id": "logic_convert_metres_kilometres_001",
+      "template_id": "logic_convert_metres_kilometres",
+      "instance_id": "logic_convert_metres_kilometres_001",
+      "seed": 74061,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "logic_convert_metres_kilometres_002",
+      "template_id": "logic_convert_metres_kilometres",
+      "instance_id": "logic_convert_metres_kilometres_002",
+      "seed": 74062,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "logic_convert_kilometres_metres_001",
+      "template_id": "logic_convert_kilometres_metres",
+      "instance_id": "logic_convert_kilometres_metres_001",
+      "seed": 74071,
+      "domain": "calculation_logic",
+      "split": "validation"
+    },
+    {
+      "task_id": "logic_convert_kilometres_metres_002",
+      "template_id": "logic_convert_kilometres_metres",
+      "instance_id": "logic_convert_kilometres_metres_002",
+      "seed": 74072,
+      "domain": "calculation_logic",
+      "split": "validation"
+    },
+    {
+      "task_id": "logic_convert_grams_kilograms_001",
+      "template_id": "logic_convert_grams_kilograms",
+      "instance_id": "logic_convert_grams_kilograms_001",
+      "seed": 74081,
+      "domain": "calculation_logic",
+      "split": "test"
+    },
+    {
+      "task_id": "logic_convert_grams_kilograms_002",
+      "template_id": "logic_convert_grams_kilograms",
+      "instance_id": "logic_convert_grams_kilograms_002",
+      "seed": 74082,
+      "domain": "calculation_logic",
+      "split": "test"
+    },
+    {
+      "task_id": "logic_validate_tolerance_001",
+      "template_id": "logic_validate_tolerance",
+      "instance_id": "logic_validate_tolerance_001",
+      "seed": 74091,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "logic_validate_tolerance_002",
+      "template_id": "logic_validate_tolerance",
+      "instance_id": "logic_validate_tolerance_002",
+      "seed": 74092,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_data_region_units_sum_001",
+      "template_id": "p2_data_region_units_sum",
+      "instance_id": "p2_data_region_units_sum_001",
+      "seed": 81001,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_data_region_units_sum_002",
+      "template_id": "p2_data_region_units_sum",
+      "instance_id": "p2_data_region_units_sum_002",
+      "seed": 81002,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_data_amount_region_sum_001",
+      "template_id": "p2_data_amount_region_sum",
+      "instance_id": "p2_data_amount_region_sum_001",
+      "seed": 81011,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_data_amount_region_sum_002",
+      "template_id": "p2_data_amount_region_sum",
+      "instance_id": "p2_data_amount_region_sum_002",
+      "seed": 81012,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_data_units_category_mean_001",
+      "template_id": "p2_data_units_category_mean",
+      "instance_id": "p2_data_units_category_mean_001",
+      "seed": 81021,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_data_units_category_mean_002",
+      "template_id": "p2_data_units_category_mean",
+      "instance_id": "p2_data_units_category_mean_002",
+      "seed": 81022,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_data_latency_region_count_001",
+      "template_id": "p2_data_latency_region_count",
+      "instance_id": "p2_data_latency_region_count_001",
+      "seed": 81031,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_data_latency_region_count_002",
+      "template_id": "p2_data_latency_region_count",
+      "instance_id": "p2_data_latency_region_count_002",
+      "seed": 81032,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_data_category_stale_sum_001",
+      "template_id": "p2_data_category_stale_sum",
+      "instance_id": "p2_data_category_stale_sum_001",
+      "seed": 81041,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_data_category_stale_sum_002",
+      "template_id": "p2_data_category_stale_sum",
+      "instance_id": "p2_data_category_stale_sum_002",
+      "seed": 81042,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_data_repeated_filter_sum_001",
+      "template_id": "p2_data_repeated_filter_sum",
+      "instance_id": "p2_data_repeated_filter_sum_001",
+      "seed": 81051,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_data_repeated_filter_sum_002",
+      "template_id": "p2_data_repeated_filter_sum",
+      "instance_id": "p2_data_repeated_filter_sum_002",
+      "seed": 81052,
+      "domain": "data_analysis",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_data_validation_control_001",
+      "template_id": "p2_data_validation_control",
+      "instance_id": "p2_data_validation_control_001",
+      "seed": 81061,
+      "domain": "data_analysis",
+      "split": "validation"
+    },
+    {
+      "task_id": "p2_data_validation_control_002",
+      "template_id": "p2_data_validation_control",
+      "instance_id": "p2_data_validation_control_002",
+      "seed": 81062,
+      "domain": "data_analysis",
+      "split": "validation"
+    },
+    {
+      "task_id": "p2_data_validation_timeout_001",
+      "template_id": "p2_data_validation_timeout",
+      "instance_id": "p2_data_validation_timeout_001",
+      "seed": 81071,
+      "domain": "data_analysis",
+      "split": "validation"
+    },
+    {
+      "task_id": "p2_data_validation_timeout_002",
+      "template_id": "p2_data_validation_timeout",
+      "instance_id": "p2_data_validation_timeout_002",
+      "seed": 81072,
+      "domain": "data_analysis",
+      "split": "validation"
+    },
+    {
+      "task_id": "p2_data_test_control_001",
+      "template_id": "p2_data_test_control",
+      "instance_id": "p2_data_test_control_001",
+      "seed": 81081,
+      "domain": "data_analysis",
+      "split": "test"
+    },
+    {
+      "task_id": "p2_data_test_control_002",
+      "template_id": "p2_data_test_control",
+      "instance_id": "p2_data_test_control_002",
+      "seed": 81082,
+      "domain": "data_analysis",
+      "split": "test"
+    },
+    {
+      "task_id": "p2_data_test_timeout_001",
+      "template_id": "p2_data_test_timeout",
+      "instance_id": "p2_data_test_timeout_001",
+      "seed": 81091,
+      "domain": "data_analysis",
+      "split": "test"
+    },
+    {
+      "task_id": "p2_data_test_timeout_002",
+      "template_id": "p2_data_test_timeout",
+      "instance_id": "p2_data_test_timeout_002",
+      "seed": 81092,
+      "domain": "data_analysis",
+      "split": "test"
+    },
+    {
+      "task_id": "p2_file_report_control_001",
+      "template_id": "p2_file_report_control",
+      "instance_id": "p2_file_report_control_001",
+      "seed": 82001,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_file_report_control_002",
+      "template_id": "p2_file_report_control",
+      "instance_id": "p2_file_report_control_002",
+      "seed": 82002,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_file_report_timeout_001",
+      "template_id": "p2_file_report_timeout",
+      "instance_id": "p2_file_report_timeout_001",
+      "seed": 82011,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_file_report_timeout_002",
+      "template_id": "p2_file_report_timeout",
+      "instance_id": "p2_file_report_timeout_002",
+      "seed": 82012,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_file_archive_unavailable_001",
+      "template_id": "p2_file_archive_unavailable",
+      "instance_id": "p2_file_archive_unavailable_001",
+      "seed": 82021,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_file_archive_unavailable_002",
+      "template_id": "p2_file_archive_unavailable",
+      "instance_id": "p2_file_archive_unavailable_002",
+      "seed": 82022,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_file_owner_invalid_001",
+      "template_id": "p2_file_owner_invalid",
+      "instance_id": "p2_file_owner_invalid_001",
+      "seed": 82031,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_file_owner_invalid_002",
+      "template_id": "p2_file_owner_invalid",
+      "instance_id": "p2_file_owner_invalid_002",
+      "seed": 82032,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_file_report_stale_001",
+      "template_id": "p2_file_report_stale",
+      "instance_id": "p2_file_report_stale_001",
+      "seed": 82041,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_file_report_stale_002",
+      "template_id": "p2_file_report_stale",
+      "instance_id": "p2_file_report_stale_002",
+      "seed": 82042,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_file_repeated_search_001",
+      "template_id": "p2_file_repeated_search",
+      "instance_id": "p2_file_repeated_search_001",
+      "seed": 82051,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_file_repeated_search_002",
+      "template_id": "p2_file_repeated_search",
+      "instance_id": "p2_file_repeated_search_002",
+      "seed": 82052,
+      "domain": "file_retrieval",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_file_validation_unavailable_001",
+      "template_id": "p2_file_validation_unavailable",
+      "instance_id": "p2_file_validation_unavailable_001",
+      "seed": 82061,
+      "domain": "file_retrieval",
+      "split": "validation"
+    },
+    {
+      "task_id": "p2_file_validation_unavailable_002",
+      "template_id": "p2_file_validation_unavailable",
+      "instance_id": "p2_file_validation_unavailable_002",
+      "seed": 82062,
+      "domain": "file_retrieval",
+      "split": "validation"
+    },
+    {
+      "task_id": "p2_file_validation_invalid_001",
+      "template_id": "p2_file_validation_invalid",
+      "instance_id": "p2_file_validation_invalid_001",
+      "seed": 82071,
+      "domain": "file_retrieval",
+      "split": "validation"
+    },
+    {
+      "task_id": "p2_file_validation_invalid_002",
+      "template_id": "p2_file_validation_invalid",
+      "instance_id": "p2_file_validation_invalid_002",
+      "seed": 82072,
+      "domain": "file_retrieval",
+      "split": "validation"
+    },
+    {
+      "task_id": "p2_file_test_unavailable_001",
+      "template_id": "p2_file_test_unavailable",
+      "instance_id": "p2_file_test_unavailable_001",
+      "seed": 82081,
+      "domain": "file_retrieval",
+      "split": "test"
+    },
+    {
+      "task_id": "p2_file_test_unavailable_002",
+      "template_id": "p2_file_test_unavailable",
+      "instance_id": "p2_file_test_unavailable_002",
+      "seed": 82082,
+      "domain": "file_retrieval",
+      "split": "test"
+    },
+    {
+      "task_id": "p2_file_test_invalid_001",
+      "template_id": "p2_file_test_invalid",
+      "instance_id": "p2_file_test_invalid_001",
+      "seed": 82091,
+      "domain": "file_retrieval",
+      "split": "test"
+    },
+    {
+      "task_id": "p2_file_test_invalid_002",
+      "template_id": "p2_file_test_invalid",
+      "instance_id": "p2_file_test_invalid_002",
+      "seed": 82092,
+      "domain": "file_retrieval",
+      "split": "test"
+    },
+    {
+      "task_id": "p2_api_process_control_001",
+      "template_id": "p2_api_process_control",
+      "instance_id": "p2_api_process_control_001",
+      "seed": 83001,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_api_process_control_002",
+      "template_id": "p2_api_process_control",
+      "instance_id": "p2_api_process_control_002",
+      "seed": 83002,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_api_process_timeout_001",
+      "template_id": "p2_api_process_timeout",
+      "instance_id": "p2_api_process_timeout_001",
+      "seed": 83011,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_api_process_timeout_002",
+      "template_id": "p2_api_process_timeout",
+      "instance_id": "p2_api_process_timeout_002",
+      "seed": 83012,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_api_process_unavailable_001",
+      "template_id": "p2_api_process_unavailable",
+      "instance_id": "p2_api_process_unavailable_001",
+      "seed": 83021,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_api_process_unavailable_002",
+      "template_id": "p2_api_process_unavailable",
+      "instance_id": "p2_api_process_unavailable_002",
+      "seed": 83022,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_api_process_invalid_001",
+      "template_id": "p2_api_process_invalid",
+      "instance_id": "p2_api_process_invalid_001",
+      "seed": 83031,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_api_process_invalid_002",
+      "template_id": "p2_api_process_invalid",
+      "instance_id": "p2_api_process_invalid_002",
+      "seed": 83032,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_api_repeated_state_read_001",
+      "template_id": "p2_api_repeated_state_read",
+      "instance_id": "p2_api_repeated_state_read_001",
+      "seed": 83041,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_api_repeated_state_read_002",
+      "template_id": "p2_api_repeated_state_read",
+      "instance_id": "p2_api_repeated_state_read_002",
+      "seed": 83042,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_api_not_committed_001",
+      "template_id": "p2_api_not_committed",
+      "instance_id": "p2_api_not_committed_001",
+      "seed": 83051,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_api_not_committed_002",
+      "template_id": "p2_api_not_committed",
+      "instance_id": "p2_api_not_committed_002",
+      "seed": 83052,
+      "domain": "api_workflow",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_api_validation_stale_001",
+      "template_id": "p2_api_validation_stale",
+      "instance_id": "p2_api_validation_stale_001",
+      "seed": 83061,
+      "domain": "api_workflow",
+      "split": "validation"
+    },
+    {
+      "task_id": "p2_api_validation_stale_002",
+      "template_id": "p2_api_validation_stale",
+      "instance_id": "p2_api_validation_stale_002",
+      "seed": 83062,
+      "domain": "api_workflow",
+      "split": "validation"
+    },
+    {
+      "task_id": "p2_api_validation_committed_001",
+      "template_id": "p2_api_validation_committed",
+      "instance_id": "p2_api_validation_committed_001",
+      "seed": 83071,
+      "domain": "api_workflow",
+      "split": "validation"
+    },
+    {
+      "task_id": "p2_api_validation_committed_002",
+      "template_id": "p2_api_validation_committed",
+      "instance_id": "p2_api_validation_committed_002",
+      "seed": 83072,
+      "domain": "api_workflow",
+      "split": "validation"
+    },
+    {
+      "task_id": "p2_api_test_stale_001",
+      "template_id": "p2_api_test_stale",
+      "instance_id": "p2_api_test_stale_001",
+      "seed": 83081,
+      "domain": "api_workflow",
+      "split": "test"
+    },
+    {
+      "task_id": "p2_api_test_stale_002",
+      "template_id": "p2_api_test_stale",
+      "instance_id": "p2_api_test_stale_002",
+      "seed": 83082,
+      "domain": "api_workflow",
+      "split": "test"
+    },
+    {
+      "task_id": "p2_api_test_unknown_001",
+      "template_id": "p2_api_test_unknown",
+      "instance_id": "p2_api_test_unknown_001",
+      "seed": 83091,
+      "domain": "api_workflow",
+      "split": "test"
+    },
+    {
+      "task_id": "p2_api_test_unknown_002",
+      "template_id": "p2_api_test_unknown",
+      "instance_id": "p2_api_test_unknown_002",
+      "seed": 83092,
+      "domain": "api_workflow",
+      "split": "test"
+    },
+    {
+      "task_id": "p2_logic_chain_control_001",
+      "template_id": "p2_logic_chain_control",
+      "instance_id": "p2_logic_chain_control_001",
+      "seed": 84001,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_logic_chain_control_002",
+      "template_id": "p2_logic_chain_control",
+      "instance_id": "p2_logic_chain_control_002",
+      "seed": 84002,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_logic_chain_timeout_001",
+      "template_id": "p2_logic_chain_timeout",
+      "instance_id": "p2_logic_chain_timeout_001",
+      "seed": 84011,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_logic_chain_timeout_002",
+      "template_id": "p2_logic_chain_timeout",
+      "instance_id": "p2_logic_chain_timeout_002",
+      "seed": 84012,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_logic_chain_unavailable_001",
+      "template_id": "p2_logic_chain_unavailable",
+      "instance_id": "p2_logic_chain_unavailable_001",
+      "seed": 84021,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_logic_chain_unavailable_002",
+      "template_id": "p2_logic_chain_unavailable",
+      "instance_id": "p2_logic_chain_unavailable_002",
+      "seed": 84022,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_logic_chain_invalid_001",
+      "template_id": "p2_logic_chain_invalid",
+      "instance_id": "p2_logic_chain_invalid_001",
+      "seed": 84031,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_logic_chain_invalid_002",
+      "template_id": "p2_logic_chain_invalid",
+      "instance_id": "p2_logic_chain_invalid_002",
+      "seed": 84032,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_logic_chain_stale_001",
+      "template_id": "p2_logic_chain_stale",
+      "instance_id": "p2_logic_chain_stale_001",
+      "seed": 84041,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_logic_chain_stale_002",
+      "template_id": "p2_logic_chain_stale",
+      "instance_id": "p2_logic_chain_stale_002",
+      "seed": 84042,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_logic_repeated_calculation_001",
+      "template_id": "p2_logic_repeated_calculation",
+      "instance_id": "p2_logic_repeated_calculation_001",
+      "seed": 84051,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_logic_repeated_calculation_002",
+      "template_id": "p2_logic_repeated_calculation",
+      "instance_id": "p2_logic_repeated_calculation_002",
+      "seed": 84052,
+      "domain": "calculation_logic",
+      "split": "train"
+    },
+    {
+      "task_id": "p2_logic_validation_repeat_001",
+      "template_id": "p2_logic_validation_repeat",
+      "instance_id": "p2_logic_validation_repeat_001",
+      "seed": 84061,
+      "domain": "calculation_logic",
+      "split": "validation"
+    },
+    {
+      "task_id": "p2_logic_validation_repeat_002",
+      "template_id": "p2_logic_validation_repeat",
+      "instance_id": "p2_logic_validation_repeat_002",
+      "seed": 84062,
+      "domain": "calculation_logic",
+      "split": "validation"
+    },
+    {
+      "task_id": "p2_logic_validation_control_001",
+      "template_id": "p2_logic_validation_control",
+      "instance_id": "p2_logic_validation_control_001",
+      "seed": 84071,
+      "domain": "calculation_logic",
+      "split": "validation"
+    },
+    {
+      "task_id": "p2_logic_validation_control_002",
+      "template_id": "p2_logic_validation_control",
+      "instance_id": "p2_logic_validation_control_002",
+      "seed": 84072,
+      "domain": "calculation_logic",
+      "split": "validation"
+    },
+    {
+      "task_id": "p2_logic_test_repeat_001",
+      "template_id": "p2_logic_test_repeat",
+      "instance_id": "p2_logic_test_repeat_001",
+      "seed": 84081,
+      "domain": "calculation_logic",
+      "split": "test"
+    },
+    {
+      "task_id": "p2_logic_test_repeat_002",
+      "template_id": "p2_logic_test_repeat",
+      "instance_id": "p2_logic_test_repeat_002",
+      "seed": 84082,
+      "domain": "calculation_logic",
+      "split": "test"
+    },
+    {
+      "task_id": "p2_logic_test_control_001",
+      "template_id": "p2_logic_test_control",
+      "instance_id": "p2_logic_test_control_001",
+      "seed": 84091,
+      "domain": "calculation_logic",
+      "split": "test"
+    },
+    {
+      "task_id": "p2_logic_test_control_002",
+      "template_id": "p2_logic_test_control",
+      "instance_id": "p2_logic_test_control_002",
+      "seed": 84092,
+      "domain": "calculation_logic",
+      "split": "test"
+    }
+  ]
+}
