@@ -1,0 +1,28 @@
+{
+  "manifest_kind": "collection-and-acceptance-entry",
+  "protocol_id": "risk-continue-v2.2.0",
+  "implementation_revision": "output-contract-v1",
+  "entry_version": "frozen-continue-acceptance-v2",
+  "freeze_date": "2026-11-27",
+  "checkpoint_schema_version": "2.0.0",
+  "prompt_version": "risk-continue-v2.2-json-observation-v1",
+  "output_contract_version": "native-json-answer-v1",
+  "observation_encoding": "lossless-json-v1",
+  "parent_manifest_sha256": "c9bc13ba1e846e0d0f2050b044ef0e525603bc071cbcab769e5e6668fe9253f7",
+  "legacy_entry_manifest_sha256": "bd86d505193ee511d4c362273f62a62a8a913769e7196ba7476ab9493c7585d7",
+  "effective_catalog_sha256": "66ac8a5d56aaed2f7aafeac57dab918cc46d4cc3d3c8287ec60686594f16682a",
+  "split_manifest_sha256": "baf287b2e5103432b9411eef5d89099707f6998ef01c51a2212eaaa92043e6b9",
+  "files": {
+    "src/risk_agent/collection/output_contract.py": "71cfce9f9f9e5611e4d41c10d5d12797ca1cc367058bf01a594f34434909dbf0",
+    "src/risk_agent/collection/protocol_freeze_v2_2.py": "2aa3cc4c56bcc958deb1b74173f9f005fec536ea6fd0774ca877d949d723310d",
+    "src/risk_agent/collection/continue_acceptance_v2.py": "3817959622065737b349358ba4b5455bc79ebbafac9958afaa7526f1d8a5fd91",
+    "scripts/run_frozen_continue_acceptance_v2.py": "9189daf78028f5d73f5b1a161d541bee825b4e65eb2d28dfc4822b23edadf2d7",
+    "configs/phase2_risk_collection_v2_2.yaml": "ed24e02e35825e3278a865831340d6105c5d8d6473e0c1065d21810b236f39aa",
+    "configs/remote_model_continue_v2_2.yaml": "3257d2daf1da5c5622dda2ab2715a81c3f18a9689e5de0a03300ef4d8a6f634c",
+    "configs/continue_acceptance_v2_2.yaml": "bd27172768aa9dbf9e56f20f4fa97ea931a424e60c3c0280b669f54271eb38f6",
+    "configs/continue_output_contract_v1.txt": "2d13a6ebecc6099a09c50fdb8b3eb5239c867fad600ddfe870381b387b4db12b",
+    "docs/phase2/continue_acceptance_entry_v2.md": "ebb89d41c2f80f044c311f7267ae9395a34c7f1e8c88aa11f6f172a092cd27e8",
+    "docs/phase2/protocol_freeze_manifest_v2_1_readonly_refresh.json": "c9bc13ba1e846e0d0f2050b044ef0e525603bc071cbcab769e5e6668fe9253f7",
+    "docs/phase2/continue_acceptance_entry_manifest_v1.json": "bd86d505193ee511d4c362273f62a62a8a913769e7196ba7476ab9493c7585d7"
+  }
+}
