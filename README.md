@@ -265,3 +265,9 @@ python3.12 -m venv .venv
 当前实现修订为 [readonly-refresh-v1](docs/phase2/replay_guard_readonly_refresh_v1.md)：
 允许新调用 ID 的只读查询，保留历史调用 ID 和不安全写入的重放保护。
 默认冻结检查使用独立修订 Manifest；原 v2.1 配置、Manifest 和历史 Run 保留。
+
+统一验收入口已接通首个合格点捕获、独立 Restore、完整 CONTINUE 和 Verifier：
+`.venv/bin/python scripts/run_frozen_continue_acceptance.py --mode local-preflight`。
+使用 `--mode offline-smoke` 可运行五个 Train 任务的完整离线接线验证。
+[入口说明](docs/phase2/continue_acceptance_entry_v1.md)包含真实验收的独立授权、
+新鲜远端证据、资源释放和审计要求；离线结果不属于正式训练数据。

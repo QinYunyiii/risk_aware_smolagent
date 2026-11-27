@@ -1,0 +1,12 @@
+{
+  "entry_version": "frozen-continue-acceptance-v1",
+  "parent_manifest_sha256": "c9bc13ba1e846e0d0f2050b044ef0e525603bc071cbcab769e5e6668fe9253f7",
+  "files": {
+    "src/risk_agent/collection/continue_acceptance.py": "8517b17478e4c6124e6a50443f263afb16c75be015ea955a1d3cf760e9787f9e",
+    "src/risk_agent/collection/continue_acceptance_fixture.py": "dac8bab45ff859480ac0bc419514d08b7fa367deed7f22d440f96693ebe9a30b",
+    "scripts/run_frozen_continue_acceptance.py": "ba7e4abff0268e90a5e70b2ec812a0e6ec0c2c7ee60874bb670fcaf4581bce61",
+    "configs/continue_acceptance_v2_1.yaml": "60ba29658ac2e83e9676834b24836509438ce3077238d5716a94b07bc0f9aedb",
+    "docs/phase2/continue_acceptance_entry_v1.md": "38c48702c3f9080899396e14593623071c05600d30565e6c1f4fd2ade0db2de0",
+    "scripts/run_p2_d2_real_qwen_gate.py": "a8a2cae31a6e9ca31d543b0d90a99e2c2bf755930fd270565b65a0aefdfabffc"
+  }
+}

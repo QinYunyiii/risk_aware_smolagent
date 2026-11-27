@@ -1,0 +1,23 @@
+entry_version: frozen-continue-acceptance-v1
+protocol_id: risk-continue-v2.1.0
+implementation_revision: readonly-refresh-v1
+task_ids:
+  - p2_data_region_units_sum_001
+  - p2_file_report_control_001
+  - p2_api_process_control_001
+  - p2_logic_chain_control_001
+  - p2_data_region_units_sum_002
+worker_schedule: [worker-0, worker-1, worker-0, worker-1, worker-0]
+max_attempts_per_task: 1
+automatic_retries: 0
+worker_failover: false
+replacement_tasks: 0
+stop_on_first_failure: true
+formal_experiment: false
+research_dataset_eligible: false
+real_mode_requires_separate_authorization: true
+preflight:
+  minimum_disk_free_gib: 20
+  maximum_evidence_age_seconds: 300
+  expected_remote_container: 36f825bcc5da
+  expected_remote_user: root
