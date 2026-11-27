@@ -1,0 +1,11 @@
+{
+  "implementation_revision": "budget-boundary-audit-v1",
+  "parent_formal_manifest_sha256": "553ce3c15b34588889775f7c95cadd5ece94219e1f45b18b165e4858a1c82d08",
+  "research_protocol_unchanged": true,
+  "files": {
+    "src/risk_agent/collection/budget_boundary_audit.py": "8d96f259908f32ecaeb54c39a626174d8d3d9eb1663b5a182dba0b883a3c4730",
+    "src/risk_agent/collection/formal_budget_revision.py": "c187f1f5542a085b66212a346ceb5fbde36deab80f61ecc25a75f4342caf4012",
+    "scripts/prepare_formal_train_continuation.py": "2ce9be2a6b200b647c171e8026f99fc0e10d51bf2e2d19ce2b6a92a1fd281aad",
+    "docs/phase2/formal_budget_audit_revision_v1.md": "5e114151493a692155ac34569104e4e41a8e91ae7546a243eac2d98da53b81d8"
+  }
+}
