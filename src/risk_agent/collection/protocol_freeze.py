@@ -26,6 +26,10 @@ PROTOCOL_ID = "risk-continue-v2.1.0"
 PROFILE_PATH = "configs/phase2_risk_collection_v2_1.yaml"
 MANIFEST_PATH = "docs/phase2/protocol_freeze_manifest_v2_1.json"
 SPLIT_PATH = "docs/phase2/task_split_manifest_v2_1.json"
+ORIGINAL_REVISION = "original-v2.1"
+READONLY_REFRESH_REVISION = "readonly-refresh-v1"
+CURRENT_PROFILE_PATH = "configs/phase2_risk_collection_v2_1_readonly_refresh.yaml"
+CURRENT_MANIFEST_PATH = "docs/phase2/protocol_freeze_manifest_v2_1_readonly_refresh.json"
 
 
 class ProtocolFreezeError(ValueError):
@@ -100,6 +104,8 @@ class FrozenCollectionProfile:
         return {
             "gate": "PROTOCOL_FREEZE_LOCAL_PASS",
             "protocol_id": self.config["protocol_id"],
+            "implementation_revision": self.config.get("implementation_revision", ORIGINAL_REVISION),
+            "replay_policy": self.config["continue"].get("replay_policy", "historical-signatures-v1"),
             "manifest_sha256": self.manifest_sha256,
             "catalog_sha256": canonical_task_catalog_hash(self.tasks),
             "split_manifest_sha256": split_manifest_hash(self.tasks),
@@ -114,10 +120,19 @@ class FrozenCollectionProfile:
         }
 
 
-def load_frozen_collection(root: str | Path) -> FrozenCollectionProfile:
+def load_frozen_collection(
+    root: str | Path, *, implementation_revision: str = READONLY_REFRESH_REVISION
+) -> FrozenCollectionProfile:
     """Fail closed on local source, dependencies, Prompt, catalog or split drift."""
     root = Path(root).resolve()
-    manifest_path = root / MANIFEST_PATH
+    paths = {
+        ORIGINAL_REVISION: (MANIFEST_PATH, PROFILE_PATH),
+        READONLY_REFRESH_REVISION: (CURRENT_MANIFEST_PATH, CURRENT_PROFILE_PATH),
+    }
+    if implementation_revision not in paths:
+        raise ProtocolFreezeError("Unknown implementation revision")
+    manifest_name, profile_name = paths[implementation_revision]
+    manifest_path = root / manifest_name
     manifest = json.loads(manifest_path.read_text())
     if manifest["protocol_id"] != PROTOCOL_ID:
         raise ProtocolFreezeError("Protocol identity mismatch")
@@ -131,7 +146,9 @@ def load_frozen_collection(root: str | Path) -> FrozenCollectionProfile:
     prompt = files("smolagents").joinpath("prompts/toolcalling_agent.yaml").read_bytes()
     if hashlib.sha256(prompt).hexdigest() != manifest["system_prompt_resource_sha256"]:
         raise ProtocolFreezeError("smolagents system prompt resource changed")
-    config = yaml.safe_load((root / PROFILE_PATH).read_text())
+    config = yaml.safe_load((root / profile_name).read_text())
+    if config.get("implementation_revision", ORIGINAL_REVISION) != implementation_revision:
+        raise ProtocolFreezeError("Collection implementation revision mismatch")
     remote = yaml.safe_load((root / config["dependencies"]["remote_model_config"]).read_text())
     if config["protocol_id"] != PROTOCOL_ID:
         raise ProtocolFreezeError("Collection profile identity mismatch")

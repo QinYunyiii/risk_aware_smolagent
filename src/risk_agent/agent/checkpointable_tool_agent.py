@@ -58,6 +58,7 @@ class CheckpointableToolCallingAgent(ToolCallingAgent):
                 f"found {installed}"
             )
         super().__init__(*args, **kwargs)
+        self._protected_tool_call_ids: set[str] | None = None
         if isinstance(self.model, RecordingModel):
             self.model.bind_step_state_provider(
                 lambda: (self.step_number, self.max_steps)
@@ -65,7 +66,21 @@ class CheckpointableToolCallingAgent(ToolCallingAgent):
 
     def restore_snapshot(self, snapshot: AgentStateSnapshot) -> CheckpointableToolCallingAgent:
         AgentStateAdapter.restore(self, snapshot)
+        self._protected_tool_call_ids = None
         return self
+
+    def protect_restored_tool_call_ids(self) -> None:
+        """Reject historical call IDs while allowing new read-only observations.
+
+        This opt-in guard is derived from restored Memory, so it adds no Checkpoint
+        schema fields. New IDs are reserved before any tool in a batch executes.
+        """
+        self._protected_tool_call_ids = {
+            call.id
+            for step in self.memory.steps
+            if isinstance(step, ActionStep)
+            for call in step.tool_calls or []
+        }
 
     def _step_stream(
         self, memory_step: ActionStep
@@ -127,6 +142,16 @@ class CheckpointableToolCallingAgent(ToolCallingAgent):
             for call in (chat_message.tool_calls or [])
         ]
         memory_step.tool_calls = sorted(announced, key=lambda call: call.id)
+        if self._protected_tool_call_ids is not None:
+            ids = [call.id for call in announced]
+            if len(ids) != len(set(ids)) or self._protected_tool_call_ids.intersection(ids):
+                if isinstance(self.model, RecordingModel):
+                    self.model.record_parsing_outcome(chat_message, parsing_status="success")
+                raise AgentToolExecutionError(
+                    "checkpoint_resume_replay_detected: historical or duplicate tool_call_id",
+                    self.logger,
+                )
+            self._protected_tool_call_ids.update(ids)
         final_answer_count = sum(call.name == "final_answer" for call in announced)
         task_tool_count = len(announced) - final_answer_count
         if final_answer_count and len(announced) > 1:

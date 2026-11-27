@@ -1,0 +1,139 @@
+# Approved implementation revision; parent v2.1 profile remains unchanged.
+version: 2
+protocol_id: risk-continue-v2.1.0
+protocol_status: frozen
+formal_experiment: true
+controller_type: qwen3_model
+execution_mode: model_backed_formal
+dependencies:
+  smolagents: 1.26.0
+  remote_model_config: configs/remote_model_p2_d2_1024.yaml
+  checkpoint_schema: docs/phase2/checkpoint_schema_v2.json
+  feature_allowlist: docs/phase2/feature_allowlist.json
+  failure_taxonomy: docs/phase2/failure_taxonomy_v2.md
+  catalog_profile: configs/task_catalog_v2_1.yaml
+  freeze_manifest: docs/phase2/protocol_freeze_manifest_v2_1_readonly_refresh.json
+  split_manifest: docs/phase2/task_split_manifest_v2_1.json
+capture:
+  primary_rule: first_eligible_nonterminal_tool_observation
+  granularity: completed_action_step_observation_batch
+  max_primary_checkpoints_per_task_run: 1
+  require_observation_in_agent_memory: true
+  require_next_model_input_hash: true
+  require_remaining_model_step: true
+  stop_source_run_after_capture: true
+  source_terminal_status: checkpoint_captured
+  select_using_future_outcome: false
+  error_only_sampling: false
+  multiple_checkpoint_extension_enabled: false
+  invoke_on_every_completed_action_step: true
+  eligible_visible_tool_errors_included: true
+continue:
+  action: CONTINUE
+  add_intervention_prompt: false
+  replay_completed_tool_call: false
+  require_same_model_prompt_tools_generation_config: true
+  require_source_restore_hash_match: true
+  require_first_model_input_exact_match: true
+  verifier_required: true
+  execution: resume_stream_true_until_terminal_then_verifier
+  carry_source_remaining_budget: true
+  reset_budget_after_restore: false
+  replay_policy: new-readonly-observations-v1
+limits:
+  max_agent_steps: 10
+  max_model_calls: 10
+  max_tool_calls: 12
+  max_total_tokens: 50000
+  max_completion_tokens_per_call: 1024
+  max_context_tokens: 8192
+  model_request_timeout_seconds: 120
+  task_wall_clock_timeout_seconds: 900
+  maximum_safe_infra_reattempts_before_side_effect: 1
+labels:
+  success: 1
+  failure: 0
+  censored: null
+  max_budget_with_failed_verifier: 0
+  model_service_failure_without_result: null
+  environment_failure_without_result: null
+  manual_abort: null
+  null_to_failure_conversion_allowed: false
+catalog:
+  existing_catalog: configs/task_templates.yaml
+  existing_catalog_sha256: 8a76a5c2b5d826832f2c604477c606d699a19a8ceee35b923cedc336b9e9d775
+  preserve_existing_template_ids_definitions_splits: true
+  target_total_templates: 80
+  target_templates_per_domain: 20
+  new_templates_per_domain: 10
+  new_template_split_per_domain:
+    train: 6
+    validation: 2
+    test: 2
+  new_template_reference_step_range:
+  - 3
+  - 8
+  v2_catalog_status: frozen_effective_catalog_v2.1.0
+  effective_catalog_profile: configs/task_catalog_v2_1.yaml
+  existing_catalog_hash_kind: canonical_task_catalog_sha256_for_200_original_instances
+sampling:
+  instances_per_template: 2
+  target_task_runs:
+    train: 96
+    validation: 32
+    test: 32
+    total: 160
+  target_valid_checkpoints:
+    train: 96
+    validation: 32
+    test: 32
+    total: 160
+  minimum_valid_checkpoint_gate:
+    train: 72
+    validation: 24
+    test: 24
+    total: 120
+  split_group_key: template_id
+  repeat_fraction_for_stochasticity: 0.2
+storage:
+  raw_jsonl_append_only: true
+  overwrite_existing_run: false
+  distinguish_observed_zero_and_missing: true
+  checksum_algorithm: sha256
+  redact_secrets: true
+  test_labels_isolated: true
+quality_gates:
+  restore_hash_match_fraction: 1.0
+  first_model_input_match_fraction: 1.0
+  critical_usage_observability_fraction: 0.95
+  require_continue_success_and_failure: true
+  require_feature_provenance: true
+  require_no_template_overlap: true
+  require_no_branch_state_crosstalk: true
+  smoke_data_may_enter_formal_dataset: false
+evaluation:
+  models:
+  - constant_train_prevalence
+  - regularized_logistic_regression
+  - lightgbm_if_sample_gate_passes
+  lightgbm_gate:
+    minimum_train_rows: 200
+    minimum_rows_per_class: 30
+  metrics:
+  - auroc
+  - auprc
+  - brier_score
+  - log_loss
+  - precision
+  - recall
+  - calibration_curve
+  - reliability_diagram
+  bootstrap_cluster: template_id
+  single_class_auc: null
+  test_evaluations: 1
+release_requirements:
+  local_integrity_check: scripts/verify_protocol_freeze.py
+  real_new_profile_continue_to_terminal_and_verifier: required_before_formal_collection
+  explicit_formal_collection_authorization: required
+  historical_smoke_data_is_formal_data: false
+implementation_revision: readonly-refresh-v1

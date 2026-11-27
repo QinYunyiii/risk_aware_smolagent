@@ -53,6 +53,8 @@ from .day5_gate import (
 
 
 EXPERIMENT_ID = "b3_model_backed_continue_gate"
+LEGACY_REPLAY_POLICY = "historical-signatures-v1"
+READONLY_REFRESH_POLICY = "new-readonly-observations-v1"
 B3_RESEARCH_FLAGS = {
     "formal_experiment": False,
     "execution_mode": "model_backed_smoke",
@@ -102,7 +104,9 @@ class ContinueGateError(RuntimeError):
     """A frozen B3 prerequisite or complete-chain invariant failed."""
 
 
-def _prohibited_source_signatures(runtime_state: RuntimeState) -> frozenset[str]:
+def _prohibited_source_signatures(
+    runtime_state: RuntimeState, *, replay_policy: str = LEGACY_REPLAY_POLICY
+) -> frozenset[str]:
     """Protect completed/unsafe source calls without treating every error as success.
 
     A failed read-only operation, or a write proven not to have started/committed, is
@@ -110,9 +114,15 @@ def _prohibited_source_signatures(runtime_state: RuntimeState) -> frozenset[str]
     commit evidence remain prohibited conservatively.
     """
 
+    if replay_policy not in {LEGACY_REPLAY_POLICY, READONLY_REFRESH_POLICY}:
+        raise ValueError("Unknown CONTINUE replay policy")
     signatures: set[str] = set()
     last_failure = runtime_state.tool_state.get("last_failure")
     for entry in runtime_state.tool_history:
+        if replay_policy == READONLY_REFRESH_POLICY and describe_operation(
+            entry.tool_name, entry.tool_arguments
+        ).read_only:
+            continue
         signature = canonical_tool_call_signature(
             entry.tool_name, entry.tool_arguments
         )
@@ -299,7 +309,13 @@ class ContinueGateRunner:
         ) = None,
         experiment_id: str = EXPERIMENT_ID,
         clock: Callable[[], float] = time.monotonic,
+        replay_policy: str = LEGACY_REPLAY_POLICY,
+        protocol_id: str = PROTOCOL_ID,
     ) -> None:
+        if replay_policy not in {LEGACY_REPLAY_POLICY, READONLY_REFRESH_POLICY}:
+            raise ValueError("Unknown CONTINUE replay policy")
+        self.replay_policy = replay_policy
+        self.protocol_id = protocol_id
         self.settings = settings
         self.run_directory = Path(run_directory).expanduser().resolve()
         self.checkpoint_run = Path(checkpoint_run).expanduser().resolve()
@@ -323,6 +339,26 @@ class ContinueGateRunner:
             self.run_directory / "verifier_outcomes.jsonl"
         )
         self.budget_writer = JsonlTraceWriter(self.run_directory / "budget_audit.jsonl")
+
+    @classmethod
+    def from_frozen_collection(
+        cls, *, root: str | Path, run_directory: str | Path,
+        checkpoint_run: str | Path, run_id: str, **kwargs: Any,
+    ) -> ContinueGateRunner:
+        """Load the pinned revision before constructing any model client."""
+        from .protocol_freeze import load_frozen_collection
+
+        root = Path(root).resolve()
+        profile = load_frozen_collection(root)
+        return cls(
+            settings=RemoteModelSettings.from_yaml(
+                root / profile.config["dependencies"]["remote_model_config"]
+            ),
+            tasks=profile.tasks, run_directory=run_directory,
+            checkpoint_run=checkpoint_run, run_id=run_id,
+            replay_policy=profile.config["continue"]["replay_policy"],
+            protocol_id=profile.config["protocol_id"], **kwargs,
+        )
 
     def _validate_identity(
         self, verified: VerifyV2Result, worker: WorkerConfig
@@ -372,7 +408,8 @@ class ContinueGateRunner:
             worker_id=worker.worker_id,
             environment_id=f"b3:{branch_attempt_id}",
             additional_context={
-                "protocol_id": PROTOCOL_ID,
+                "protocol_id": self.protocol_id,
+                "replay_policy": self.replay_policy,
                 "source_run_id": audit.task_run_id,
                 "checkpoint_id": audit.checkpoint_id,
                 "branch_id": branch_id,
@@ -442,7 +479,9 @@ class ContinueGateRunner:
             environment=environment,
         )
         restored_environment_state_hash = environment.state_hash()
-        source_signatures = _prohibited_source_signatures(restored.runtime_state)
+        source_signatures = _prohibited_source_signatures(
+            restored.runtime_state, replay_policy=self.replay_policy
+        )
         raw_tool_writer = JsonlTraceWriter(branch_root / "trajectory.jsonl")
         monitor = self._monitor(
             task=task,
@@ -499,6 +538,8 @@ class ContinueGateRunner:
         budget = restored.manifest.runtime_state["budget_state"]
         model.restore_model_calls_used(int(budget["model_calls_used"]))
         agent.restore_snapshot(restored.agent_state_snapshot)
+        if self.replay_policy == READONLY_REFRESH_POLICY:
+            agent.protect_restored_tool_call_ids()
         model.expect(
             expected_request_from_checkpoint(
                 manifest=restored.manifest,
@@ -746,7 +787,8 @@ class ContinueGateRunner:
             "model_version": self.settings.model_version,
             "prompt_version": self.settings.prompt_version,
             "tool_version": TOOL_VERSION,
-            "protocol_id": PROTOCOL_ID,
+            "protocol_id": self.protocol_id,
+            "replay_policy": self.replay_policy,
             "checkpoint_schema": restored.manifest.schema_version,
             "verifier_code_sha256": sha256_file(
                 "src/risk_agent/benchmark/verifier.py"
@@ -820,6 +862,7 @@ class ContinueGateRunner:
         return {
             "run_id": self.run_id,
             "source_task_run_id": audit.task_run_id,
+            "replay_policy": self.replay_policy,
             "checkpoint_id": audit.checkpoint_id,
             "task_id": task.task_id,
             "branch_id": branch_id,

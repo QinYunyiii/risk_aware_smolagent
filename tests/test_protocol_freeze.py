@@ -19,8 +19,9 @@ from risk_agent.benchmark import (
 from risk_agent.benchmark.verifier import DeterministicVerifier
 from risk_agent.collection.day5_gate import canonical_task_catalog_hash, split_manifest_hash
 from risk_agent.collection.protocol_freeze import (
-    MANIFEST_PATH,
-    PROFILE_PATH,
+    CURRENT_MANIFEST_PATH as MANIFEST_PATH,
+    CURRENT_PROFILE_PATH as PROFILE_PATH,
+    ORIGINAL_REVISION,
     ProtocolFreezeError,
     build_formal_catalog,
     load_frozen_collection,
@@ -28,6 +29,11 @@ from risk_agent.collection.protocol_freeze import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_original_freeze_is_preserved_and_rejects_the_revised_implementation() -> None:
+    with pytest.raises(ProtocolFreezeError, match="Frozen input changed"):
+        load_frozen_collection(ROOT, implementation_revision=ORIGINAL_REVISION)
 
 
 def test_frozen_profile_checks_actual_sources_and_remains_collection_locked() -> None:
@@ -94,6 +100,8 @@ def test_renderer_does_not_use_hidden_expected_reference_or_fault_data() -> None
     "docs/phase2/failure_taxonomy_v2.md",
     "src/risk_agent/benchmark/verifier.py",
     "src/risk_agent/collection/protocol_freeze.py",
+    "src/risk_agent/collection/continue_gate.py",
+    "src/risk_agent/agent/checkpointable_tool_agent.py",
 ])
 def test_freeze_rejects_drift_before_catalog_loading(tmp_path: Path, relative: str) -> None:
     manifest = json.loads((ROOT / MANIFEST_PATH).read_text())

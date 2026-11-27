@@ -261,3 +261,7 @@ python3.12 -m venv .venv
 详细约束见 [冻结记录](docs/phase2/protocol_freeze_record_v2_1.md)。
 本地冻结不代表正式采集已就绪：新配置仍须验收完整 CONTINUE 到终止及 Verifier，
 并获得正式采集授权；历史 Smoke 数据不能作为正式训练数据。
+
+当前实现修订为 [readonly-refresh-v1](docs/phase2/replay_guard_readonly_refresh_v1.md)：
+允许新调用 ID 的只读查询，保留历史调用 ID 和不安全写入的重放保护。
+默认冻结检查使用独立修订 Manifest；原 v2.1 配置、Manifest 和历史 Run 保留。
