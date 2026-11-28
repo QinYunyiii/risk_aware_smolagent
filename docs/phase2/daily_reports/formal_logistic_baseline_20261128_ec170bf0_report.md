@@ -106,6 +106,8 @@ Val 只有 4 个失败类，不能根据高 AP 或少量点估计推断稳定收
 
 可靠性图使用 5 个固定等宽箱，空箱为 null，未按 Val 重新选箱或拟合校准器。
 SVG/PNG 原文件保留在 Run，Git 仅提交不含 Task ID/个体数据的聚合 SVG。
+发布副本移除 Matplotlib 导出的行尾空格；规范化 XML 图形内容比较一致，原始 SVG 与
+实验 Manifest 不修改。发布格式核验单列在 baseline_delivery_20261128_ec170bf0 审计目录。
 
 ## Tests and Independent Result Audit
 
