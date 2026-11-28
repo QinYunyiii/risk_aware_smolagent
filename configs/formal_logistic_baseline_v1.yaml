@@ -1,0 +1,75 @@
+status: APPROVED_FROZEN_BASELINE_V1
+scope: offline_formal_risk_baseline
+source_feature_schema: formal-decision-features-v1
+positive_label: continue_failure
+target_derivation: y_failure_equals_1_minus_y_continue
+weight_fitting_split: train
+evaluation_split: validation
+test_access: prohibited
+repeat_rows_as_independent_samples: prohibited
+excluded_train_nulls: preserve_and_report
+models:
+  constant_train_prevalence:
+    hyperparameter_search: false
+  logistic_regression:
+    penalty: l2
+    C: 0.1
+    solver: lbfgs
+    max_iter: 2000
+    class_weight: null
+    random_seed: 20261128
+    hyperparameter_search: false
+preprocessing:
+  fit_scope: train_or_current_train_cv_fold_only
+  input: exact_18_allowlisted_features
+  drop_constants: train_only
+  numeric_imputation: train_median
+  all_missing_train_column: drop_as_train_constant_and_report
+  numeric_scaling: train_standard_scaler
+  categorical_feature: latest_observed_error_type
+  categorical_values:
+  - none
+  - no_progress
+  - timeout
+  - unavailable
+  - invalid_argument
+  - conflict
+  - other
+  categorical_reference: none
+  unknown_category: reject
+  polynomial_or_interaction_features: false
+cross_validation:
+  split: train_only
+  strategy: stratified_group_k_fold
+  folds: 3
+  group: template_id
+  shuffle: true
+  random_seed: 20261128
+  retry_seed_or_folds: false
+  single_class_auc_auprc: undefined
+  one_class_fit_fold: report_not_estimable_without_refitting_or_fallback_substitution
+decision_threshold: 0.5
+threshold_selection: none
+posthoc_calibration_fit: false
+metrics:
+- auroc
+- auprc
+- brier_score
+- log_loss
+- precision
+- recall
+- calibration_curve
+- reliability_diagram
+calibration_plot_bins: 5
+calibration_plot_strategy: uniform
+bootstrap:
+  unit: template_id
+  resamples: 1000
+  random_seed: 20261128
+  single_class_auc_auprc_resample: undefined_and_counted
+lightgbm:
+  enabled: false
+  minimum_train_rows: 200
+  minimum_rows_per_class: 30
+  effective_feature_sample_size_gate: unresolved_requires_separate_preregistration
+execution_authorized: true

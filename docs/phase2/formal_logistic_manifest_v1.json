@@ -1,0 +1,14 @@
+{
+  "revision": "formal-logistic-baseline-v1",
+  "scope": "fixed_train_oof_and_validation_only",
+  "parent_preparation_manifest_sha256": "2fab3c3aa8cba81751597e1174f85416e4e7f9af6391245cd404750e7f947838",
+  "files": {
+    "configs/formal_logistic_baseline_v1.yaml": "b165f757fbfc911ebedc9b0c8d833dbb3f43eba13e84086821ac61443080e510",
+    "src/risk_agent/prediction/formal_logistic.py": "f63e862a92c6e1010ccfb9ad85f4c41891db71871560aa2f01e97c354326b0e5",
+    "src/risk_agent/prediction/formal_metrics.py": "7a67e317f91535fb24eb0a6e8d8aca3540771a6e3688cc220f4a891e2164a855",
+    "src/risk_agent/prediction/formal_baseline_run.py": "997ca36005226c847493d2031def239bee9182a5a06b3254bf0b00c1b01fdd26",
+    "scripts/run_formal_baseline.py": "db4a319e784b062ca7892383d59c550b1fcd6ef98f50c5a7b16429f8f65f3035",
+    "scripts/render_formal_reliability.py": "46acc0096f7f10cc40f5d49e1651209f4e8d977193123dc78359882477f8ad89",
+    "docs/phase2/formal_logistic_execution_v1.md": "81e907defead2253078df2ade5743ce783a379fc02dec8454205a4611ebc3875"
+  }
+}
