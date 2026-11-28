@@ -1,0 +1,15 @@
+{
+  "status": "APPROVED_PAIRED_TRAIN_OOF_ONLY",
+  "client_date": "2026-11-28",
+  "authorization_source": "User: 继续day4 after Day 3 request for explicit paired Train OOF comparison approval",
+  "candidate_manifest_sha256": "2517ef42fde46f1a55ba32e6278678dfd170bdd0b44047960fb27c2174f4cd26",
+  "source_sidecar_manifest_sha256": "e84261247f8b8cf78b23a8ca63c5c3517fc108278a603780a01187cdc81fd943",
+  "arms": ["v1", "v2"],
+  "validation_access": false,
+  "test_access": false,
+  "parameter_search": false,
+  "threshold_search": false,
+  "new_collection": false,
+  "production_activation": false,
+  "stop_after_day4": true
+}
