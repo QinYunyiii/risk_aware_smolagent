@@ -1,0 +1,32 @@
+{
+  "revision": "p2-d4-day3-offline-backfill-v1",
+  "scope": "approved_day3_offline_train_backfill_only",
+  "candidate_manifest_sha256": "2517ef42fde46f1a55ba32e6278678dfd170bdd0b44047960fb27c2174f4cd26",
+  "approval_path": "docs/phase2/approvals/p2_d4_day3_feature_v2_approval_v1.json",
+  "production_activation": false,
+  "model_comparison": false,
+  "new_collection": false,
+  "files": {
+    "configs/formal_decision_features_v2_candidate.json": "44d91c1cc66d2ef7d5267003b73728376db836d20dc5b380efe8d34c2e6ef49f",
+    "docs/phase2/formal_decision_features_v2_protocol.md": "4ff52ec4426bae84317c1130b97d7077353a006d2b5a54d6c590ee690c450fe3",
+    "src/risk_agent/prediction/train_public_signals_v2.py": "c0eba188a4dcfcefe41115379a5d159585f4eb3610c23d09e580d056f2893350",
+    "tests/test_feature_v2_candidate_contract.py": "29b5757ae2212304ade09c217cab4ed7068b370f9297538dff1fbaea89a526dc",
+    "src/risk_agent/prediction/train_public_signals.py": "54ae2c0262880f654b37c1734d56100aa518d5847d23b61c83a5136451aadfdd",
+    "docs/phase2/train_public_signal_candidate_v2.md": "c3bdbcfd52b9409e288ed2ec85131fe1da4a02523e7a69ad65458ea90095879e",
+    "src/risk_agent/collection/formal_features.py": "3bd4d4d7afeba6608a9e8368108129612e495b28441c25ba3c70c818990dd4a1",
+    "src/risk_agent/prediction/formal_preparation.py": "bac7244ea140cd15c848ab4bf46f9e941a74a3dfd80b8961dde9194955313348",
+    "src/risk_agent/prediction/formal_logistic.py": "f63e862a92c6e1010ccfb9ad85f4c41891db71871560aa2f01e97c354326b0e5",
+    "configs/formal_logistic_baseline_v1.yaml": "b165f757fbfc911ebedc9b0c8d833dbb3f43eba13e84086821ac61443080e510",
+    "docs/phase2/formal_logistic_manifest_v1.json": "995c38fee060ac052117f902f6c6de028a7d68be2f8fe9028a874f3311d123d6",
+    "configs/p2_d4_day1_access_v1.json": "6d0fce4398958f90df3642230ea5b4c2acede2b7a0e465b7003a9a243527cc65",
+    "src/risk_agent/prediction/train_only_access.py": "613f4a4f9762bb2c5d8e2083201c00daf74f8b7bbfc6b3f6ef85e0b891f20ce6",
+    "src/risk_agent/prediction/train_day1_runtime.py": "10571f22d83bd74819c6fd3f21eeb0cd2bb3b060d4f71e160cad06ae0049c927",
+    "src/risk_agent/prediction/train_day1_audit.py": "8b1f1cbaf2ab9bc46c146d2166e9f42218b1619b55abe2bba5bc27d07b523ebe",
+    "scripts/audit_p2_d4_day1.py": "f181af0322be33ef073b45bc79bc9f92cc911e79c590aed5463f82b3ca228ab3",
+    "docs/phase2/formal_decision_features_v2_candidate_manifest.json": "2517ef42fde46f1a55ba32e6278678dfd170bdd0b44047960fb27c2174f4cd26",
+    "docs/phase2/approvals/p2_d4_day3_feature_v2_approval_v1.json": "52752b516d654543c6f05ab63e8b8adc5bbd7409a8dbc0e031623db460c24935",
+    "src/risk_agent/prediction/train_feature_backfill_v2.py": "27116af93018a268c0a695967ed10a3979218df2c73d1fdd7b7404115b008c2b",
+    "scripts/backfill_train_features_v2.py": "80907976ff98a7152a9e58776cad450923502628d986a9b5bb6a5f46cea14b32",
+    "tests/test_train_feature_backfill_v2.py": "55a15f99df36689ea283f94ec3cb62ba231e9814df71263e1c48bca73f5c4843"
+  }
+}

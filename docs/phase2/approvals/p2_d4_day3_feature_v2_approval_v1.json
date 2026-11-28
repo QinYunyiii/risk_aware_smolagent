@@ -1,0 +1,13 @@
+{
+  "status": "APPROVED_OFFLINE_TRAIN_BACKFILL_ONLY",
+  "client_date": "2026-11-28",
+  "authorization_source": "User: 继续day3, following Day 2 request for explicit candidate and Day 3 approval",
+  "candidate_manifest_sha256": "2517ef42fde46f1a55ba32e6278678dfd170bdd0b44047960fb27c2174f4cd26",
+  "allowed_operation": "day3_historical_qualified_train_v2_sidecar_backfill",
+  "weight_fitting_authorized": false,
+  "model_comparison_authorized": false,
+  "production_activation_authorized": false,
+  "new_collection_authorized": false,
+  "remote_access_authorized": false,
+  "stop_after_day3": true
+}
