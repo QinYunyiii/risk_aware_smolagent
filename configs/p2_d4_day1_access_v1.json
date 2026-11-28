@@ -1,0 +1,28 @@
+{
+  "revision": "p2-d4-day1-train-access-v1",
+  "scope": "day1_only_no_features_or_models_activated",
+  "train_proof": "runs/phase2_validation_stage_a/validation_stage_a_20261128_32d73e67/train_proof.json",
+  "train_proof_sha256": "04c30487e661cd378c3375efd995ae71a6f6a9dc14f287944b1097eb0a350472",
+  "expected": {
+    "source_attempts": 96,
+    "qualified_primaries": 95,
+    "successes": 85,
+    "failures": 10,
+    "templates": 48,
+    "censored": 1,
+    "repeat_manifest_branches": 19
+  },
+  "historical_repeat_label_disagreements": 1,
+  "repeat_label_evidence": "previously published Train continuation report; not independently recomputed in Day 1",
+  "integrity_scope": "sha256_authorized_inputs_only_other_history_metadata_only",
+  "frozen_context_sha256": {
+    "configs/formal_logistic_baseline_v1.yaml": "b165f757fbfc911ebedc9b0c8d833dbb3f43eba13e84086821ac61443080e510",
+    "docs/phase2/formal_logistic_manifest_v1.json": "995c38fee060ac052117f902f6c6de028a7d68be2f8fe9028a874f3311d123d6"
+  },
+  "frozen_reuse_sha256": {
+    "src/risk_agent/agent/agent_state_adapter.py": "502a265255d426cbd7714230bb9c5ed640f6e57db3790e0d57944cbfbda15d11",
+    "src/risk_agent/collection/formal_features.py": "3bd4d4d7afeba6608a9e8368108129612e495b28441c25ba3c70c818990dd4a1",
+    "src/risk_agent/prediction/formal_preparation.py": "bac7244ea140cd15c848ab4bf46f9e941a74a3dfd80b8961dde9194955313348",
+    "src/risk_agent/prediction/train_evidence.py": "3a08b94ee66e7f8ad055ca805707004d4faaee2652052ed4e7436bf4f45792e4"
+  }
+}
