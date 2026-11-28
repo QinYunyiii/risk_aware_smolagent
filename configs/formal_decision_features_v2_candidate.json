@@ -1,0 +1,66 @@
+{
+  "revision": "p2-d4-public-completion-unknown-candidate-v2.0",
+  "status": "PROPOSED_NOT_APPROVED_NOT_EXECUTABLE",
+  "scope": "day2_candidate_contract_only",
+  "schema_version": "formal-decision-features-v2",
+  "base_schema_version": "formal-decision-features-v1",
+  "base_feature_source": "src/risk_agent/collection/formal_features.py",
+  "base_feature_count": 18,
+  "feature_names": [
+    "step_index", "tool_call_count", "observed_history_count", "remaining_step_budget",
+    "unique_tool_count", "repeated_action_count", "repeated_action_ratio", "tool_sequence_length",
+    "observed_error_count", "latest_observed_error_type", "historical_tool_success_rate",
+    "consecutive_error_count", "token_budget_fraction", "tool_budget_fraction",
+    "elapsed_time_fraction", "recent_tool_latency", "recent_model_latency", "average_tool_latency",
+    "public_completion_unknown"
+  ],
+  "new_feature": {
+    "name": "public_completion_unknown",
+    "diagnostic_domain": [0, 1, "UNKNOWN"],
+    "publishable_domain": [0, 1],
+    "publishable_type": "integer_excluding_boolean",
+    "unknown_policy": "block_complete_v2_dataset_release_no_imputation_no_label_change",
+    "match_pattern": "\\bcompletion status is unknown\\b",
+    "match_flags": ["IGNORECASE"],
+    "match_scope": "verified_single_line_public_error_body_only",
+    "normal_observation_policy": "zero_only_if_wrapper_and_json_and_correspondence_valid",
+    "other_error_policy": "zero_only_if_public_error_body_is_unambiguously_parsed",
+    "source_visibility": "agent_visible_and_monitor_observable",
+    "future_data_allowed": false,
+    "hidden_metadata_allowed": false,
+    "task_or_template_identity_as_feature": false
+  },
+  "correspondence": {
+    "source": "captured_action_memory_and_canonical_received_tool_responses",
+    "cutoff": "after_tool_observation_before_next_model_generation",
+    "explicit_response_call_id": "must_match_the_corresponding_memory_call_id",
+    "single_call_without_response_id": "require_unambiguous_completed_action_correspondence",
+    "multiple_calls": "require_explicit_unique_response_call_linkage_otherwise_UNKNOWN",
+    "transport_ids": "provenance_only_never_predictor",
+    "error_prefix": "must_match_public_tool_name_and_exact_arguments_repr",
+    "framework_suffix": "only_the_frozen_known_suffix_or_empty_suffix_is_accepted",
+    "multiline_or_unknown_error_envelope": "UNKNOWN"
+  },
+  "reuse": {
+    "module": "src/risk_agent/prediction/train_public_signals.py",
+    "symbol": "review_public",
+    "strategy": "future_day3_boundary_and_linkage_guards_then_reuse_existing_parser",
+    "modify_existing_parser": false
+  },
+  "authorization": {
+    "production_activation": false,
+    "historical_backfill": false,
+    "model_comparison": false,
+    "new_collection": false,
+    "approval_binding": "separate_explicit_approval_referencing_candidate_manifest_sha256",
+    "day4_requires_separate_approval": true
+  },
+  "historical_backfill_targets_not_executed_today": {
+    "qualified_train": 95,
+    "ones": 4,
+    "zeros": 91,
+    "unknowns": 0,
+    "original_v1_feature_changes": 0,
+    "counts_are_not_extraction_rules_or_future_batch_requirements": true
+  }
+}
