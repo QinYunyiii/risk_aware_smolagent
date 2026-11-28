@@ -1,0 +1,16 @@
+{
+  "revision": "aggregate-family-v1",
+  "authorized_split": "validation",
+  "approved_scope": "implementation_and_offline_acceptance",
+  "parent_validation_manifest_sha256": "91b67a83a0073306f60056bf5ce3e657ce2f357e31245ea8589e824cd2d86b5a",
+  "research_target_matching_changed": true,
+  "files": {
+    "configs/aggregate_fault_target_v1.yaml": "f222db2e1918bae3768453277235cd18c1c57ef0b99c99b1597fd23b7624cc69",
+    "src/risk_agent/collection/aggregate_target_policy.py": "c481aed782ceace8be6042975721787980330bf8b6d21c3bd4b0a8a55328c5c4",
+    "src/risk_agent/collection/aggregate_target_contract.py": "ab94f9c18e4b7ecd367eb24c63ccc26af20d962a3fbc312a6e3d6cca378741c2",
+    "src/risk_agent/collection/aggregate_validation_fixture.py": "d2fc3f1c204b0df1d541fdac23e5a71a073e1154faef13a36a2c6082ff2916ac",
+    "src/risk_agent/collection/aggregate_validation.py": "bbc6d2ce5273ea3118ec594ff03fda6340038dff5057dabc72eec114136b8158",
+    "scripts/run_aggregate_validation.py": "176f88f1e15aee0028f50076a429ed3de9ff6ec4c388e42b02214e8c7402ba24",
+    "docs/phase2/aggregate_validation_entry_v1.md": "21a96434c67828d3ab8483d92ecde1d7e2f115b2e1dd116593f556efcaddd6ad"
+  }
+}

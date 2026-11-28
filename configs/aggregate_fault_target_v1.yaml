@@ -1,0 +1,16 @@
+revision: aggregate-family-v1
+status: FROZEN_IMPLEMENTATION_REQUIRES_SEPARATE_REAL_AUTHORIZATION
+approved_scope: implementation_and_offline_acceptance
+automatic_real_execution: false
+parent_validation_manifest_sha256: 91b67a83a0073306f60056bf5ce3e657ce2f357e31245ea8589e824cd2d86b5a
+source_plan_sha256: 1da6c9f8fd5b5fa9142a2f49f743b70adcaa1db99cb3b6119e13e8433f7319da
+experiment_id: phase2_formal_continue_aggregate_family_v1
+domain: data_analysis
+fault_types: [F2_API_503, F5_REPEATED_ACTION]
+members: [aggregate_data, aggregate_records]
+trigger_indices: [1]
+scope_counts: {train: 0, validation: 2, test: 2}
+authorized_execution_split: validation
+primary_target: 32
+repeat_target: 7
+minimum_valid_primary: 24
