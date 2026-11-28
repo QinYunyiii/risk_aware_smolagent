@@ -1,0 +1,19 @@
+{
+  "scope": "formal-baseline-preparation-v1",
+  "model_fit_authorized": false,
+  "test_access_authorized": false,
+  "input_proof_sha256": "ef78e6ee10a84688c4c16abb921432cbe38c0e2e8be6e8dc8d92ecc48397039d",
+  "qualified_row_digest": "18435bcbc8cc75d4d56220f75233fc78872d5cb5ef0e720fce9f2b51c419492c",
+  "snapshot_manifest_sha256": "bd48e1b0b07d83574854e083a67226d47c79c8cbe8fd6cbc494fde76696c5e44",
+  "rows_by_split": {
+    "train": 95,
+    "validation": 32
+  },
+  "files": {
+    "src/risk_agent/prediction/formal_preparation.py": "bac7244ea140cd15c848ab4bf46f9e941a74a3dfd80b8961dde9194955313348",
+    "scripts/prepare_formal_baseline.py": "1cb555146bba2795123eed39c0a2cca9d8186e8f64e2b7e92da2bd89e5436a61",
+    "tests/test_formal_baseline_preparation.py": "04cc1e703a07f74a7d3d59476953ea91d1e43916572600395b04dd05c33d52ed",
+    "configs/formal_logistic_baseline_candidate_v1.yaml": "0ad3e7f82bc74e58836e706be8a7320838b15a52e706c8fe9df87701f40a9c4d",
+    "docs/phase2/formal_logistic_baseline_plan_v1.md": "56183b5f4f6fe20008977b1157c81c0ff44c26d7bf74bad7485c163e5b21f186"
+  }
+}
