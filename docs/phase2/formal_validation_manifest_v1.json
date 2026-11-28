@@ -1,0 +1,16 @@
+{
+  "revision": "formal-validation-v1",
+  "authorized_split": "validation",
+  "parent_causal_manifest_sha256": "bbd4bc3bb302590f74bd1626600efed0eedc218e16ed0ee5f691f7eb9bbffefd",
+  "research_protocol_unchanged": true,
+  "files": {
+    "configs/formal_validation_v1.yaml": "4525e233457e06832474a3f9741e97b48bb06a994929412e2f56c955f982a5fc",
+    "src/risk_agent/collection/validation_contract.py": "eeea20210eb6a5143d2664db29852eb662777a42a2c4e39a209c70df80abf89b",
+    "src/risk_agent/collection/validation_continue.py": "06ed67dcca05088d084da830b12c68f9dbac58de721c2da32829ca7677f5c5ab",
+    "src/risk_agent/collection/validation_lifecycle.py": "199797dfa057688f762d807778f7b278a9069d387bdbd388f04307862f6f510c",
+    "src/risk_agent/collection/validation_collection.py": "7a9b2bf98aa7732dfcca37e608b78787c3b56a8976c67ccb73635907033a8c56",
+    "src/risk_agent/collection/validation_prerequisite.py": "38cd5b308be35c5fda60406ac9bb75332e0668694c98df3167103c97e076e1e1",
+    "scripts/run_formal_validation.py": "18534f5316e1058d9e75c4c21f14348ff47d57c09ed8ddabf9a0d8502541c65d",
+    "docs/phase2/formal_validation_entry_v1.md": "63b21d8bb537a6fc68b0bdbeb98fccc98d2362176f539a984c1fde8a1eb864a6"
+  }
+}
