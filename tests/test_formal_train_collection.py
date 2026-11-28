@@ -4,7 +4,9 @@ import inspect
 import json
 import shutil
 import textwrap
+import time
 from copy import deepcopy
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -28,8 +30,21 @@ def collected(tmp_path_factory):
     root=tmp_path_factory.mktemp("formal_contract")/"run"
     collector=FormalCollector(root=ROOT,run_directory=root,run_id="formal_contract_fixture",
         offline_fixture=True,agent_factory=factory)
-    try:summary=collector.run_train()
-    finally:collector.close()
+    # This legacy fixture exercises ordinary UTC ordering with a controlled
+    # clock. Physical CLOCK_REALTIME can step backwards in WSL; the production
+    # causal-order revision has separate rollback injection coverage.
+    anchor=datetime.now(timezone.utc);started=time.monotonic()
+    class FixtureDateTime(datetime):
+        @classmethod
+        def now(cls,tz=None):
+            value=anchor+timedelta(seconds=time.monotonic()-started)
+            return value.astimezone(tz)if tz else value.replace(tzinfo=None)
+    import risk_agent.collection.formal_features as features
+    with pytest.MonkeyPatch.context()as patch:
+        patch.setattr(features,"datetime",FixtureDateTime)
+        collector.audit._wall_clock=lambda:FixtureDateTime.now(timezone.utc).isoformat()
+        try:summary=collector.run_train()
+        finally:collector.close()
     return root,summary,factory
 
 

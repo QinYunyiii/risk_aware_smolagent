@@ -1,0 +1,12 @@
+{
+  "revision": "decision-order-v1",
+  "parent_budget_manifest_sha256": "86374f8ba1e3770cc4a0d45544c1ca0ac6fd21aba5f66e09e4a1cbb20b9f4951",
+  "research_protocol_unchanged": true,
+  "files": {
+    "src/risk_agent/collection/decision_order.py": "326691b8e2084a87ea300b82d5da32d552d563716f98068540baf795c4f494f2",
+    "src/risk_agent/collection/causal_collection.py": "3898c7c42e2e49a68ccd8006fe5c7d2274534c718a986022cc5b0d0bfe476fda",
+    "src/risk_agent/collection/train_continuation.py": "fb1414b42af4e65506a77eaa0c8ff6a8fc9371be4a71181b2137fdd63dcefcdd",
+    "scripts/run_formal_train_continuation.py": "53c4852ce95b95e0e999f73d4a0a80cd0eb198b44bf9eeadacea60c551472f9b",
+    "docs/phase2/decision_order_v1.md": "d2b9dfd36db16176921327f2bba5777a0ef0d2ba5e9ee1e82343e6814bd3e71e"
+  }
+}
